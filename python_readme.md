@@ -51,3 +51,7 @@ tasks = AVLTree(key=lambda task: (task.priority, task.name))
 Equal keys are treated as duplicates. Extracted keys should remain comparable
 for as long as their values are stored. Type information is included through a
 generated `.pyi` file and `py.typed` marker.
+
+## License
+
+Dual-licensed under your choice of GPL-3.0-only or Apache-2.0.

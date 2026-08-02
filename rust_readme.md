@@ -1,6 +1,22 @@
-# rs-avl for Rust
+# rs-avl
 
-A generic AVL ordered set with logarithmic insertion, removal, and lookup.
+A compact, generic ordered set powered by an AVL tree. It keeps itself
+height-balanced after every insertion and removal, giving predictable
+logarithmic lookup while retaining simple, sorted iteration.
+
+Use it for primitive values, strings, domain records, or any type for which
+you can define a meaningful [`Ord`](https://doc.rust-lang.org/std/cmp/trait.Ord.html)
+implementation.
+
+## Highlights
+
+- `O(log n)` insertion, removal, and search
+- `O(log n + k)` bounded ranges returning `k` values
+- Unique-value set semantics
+- No `Clone` requirement on stored values
+- Borrowed-key lookup with `Borrow`
+- In-order, pre-order, post-order, and level-order traversals
+- `FromIterator`, `Extend`, and iteration by reference
 
 ## Installation
 
@@ -9,7 +25,7 @@ A generic AVL ordered set with logarithmic insertion, removal, and lookup.
 rs-avl = "0.1"
 ```
 
-## Example
+## Quick start
 
 ```rust
 use rs_avl::AvlTree;
@@ -24,8 +40,65 @@ assert_eq!(tree.iter().copied().collect::<Vec<_>>(), [1, 2, 3, 4, 5, 6, 7, 8]);
 assert!(tree.remove(&4));
 ```
 
-`AvlTree<T>` does not require `Clone`. It supports borrowed-key search and
-removal, `FromIterator`, `Extend`, iteration by reference, read-only node
-inspection, and in-order, pre-order, post-order, and level-order traversal.
+## Store your own structs
+
+The tree is not limited to numbers. Deriving `Ord` gives an arbitrary Rust
+struct a lexicographic ordering based on its field order. Here, releases sort
+by semantic version first, then by channel and title:
+
+```rust
+use rs_avl::AvlTree;
+
+#[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
+struct Release {
+    version: (u16, u16, u16),
+    channel: &'static str,
+    title: String,
+}
+
+let mut releases = AvlTree::new();
+
+releases.insert(Release {
+    version: (2, 0, 0),
+    channel: "stable",
+    title: "Balanced Horizon".into(),
+});
+releases.insert(Release {
+    version: (1, 5, 0),
+    channel: "stable",
+    title: "Range Finder".into(),
+});
+releases.insert(Release {
+    version: (2, 1, 0),
+    channel: "beta",
+    title: "Traversal Preview".into(),
+});
+
+let versions = releases
+    .iter()
+    .map(|release| release.version)
+    .collect::<Vec<_>>();
+
+assert_eq!(versions, [(1, 5, 0), (2, 0, 0), (2, 1, 0)]);
+assert_eq!(releases.first().unwrap().title, "Range Finder");
+assert_eq!(releases.last().unwrap().channel, "beta");
+```
+
+Notice that `Release` does not implement `Clone`: the tree takes ownership of
+each value and its iterators yield shared references. For domain-specific
+ordering—such as comparing releases by version only—you can implement `Ord`
+manually and the AVL tree will follow those rules everywhere.
+
+## Traversal and inspection
+
+`iter()` and `in_order()` yield ascending values. `pre_order()`,
+`post_order()`, and `level_order()` expose the tree's current balanced shape,
+which is useful for visualization and teaching. `root()` provides read-only
+node inspection without allowing callers to break ordering or height
+invariants.
 
 Full API documentation is available on [docs.rs](https://docs.rs/rs-avl).
+
+## License
+
+Dual-licensed under your choice of GPL-3.0-only or Apache-2.0.

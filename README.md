@@ -20,3 +20,9 @@ comparable objects and supports attribute-name or callable key extraction.
 
 See [rust_readme.md](rust_readme.md) for the Rust API and
 [python_readme.md](python_readme.md) for the Python API.
+
+## License
+
+Dual-licensed under your choice of the
+[GNU GPL v3.0](LICENSE-GPL-3.0) or the
+[Apache License 2.0](LICENSE-APACHE-2.0).

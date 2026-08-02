@@ -7,6 +7,7 @@ documentation = "https://docs.rs/rs-avl"
 homepage = "https://github.com/anuradhawick/rs-avl"
 repository = "https://github.com/anuradhawick/rs-avl"
 readme = "rust_readme.md"
+license = "GPL-3.0-only OR Apache-2.0"
 keywords = ["avl", "tree", "collection", "data-structure"]
 categories = ["data-structures"]
 include = [
@@ -14,6 +15,8 @@ include = [
     "Cargo.lock",
     "rust_readme.md",
     "rs_avl.pyi",
+    "LICENSE-GPL-3.0",
+    "LICENSE-APACHE-2.0",
     "src/**",
     "tests/avl_tree.rs",
     "examples/rust_avl.rs",
