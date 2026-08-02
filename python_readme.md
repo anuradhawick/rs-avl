@@ -1,5 +1,9 @@
 # rs-avl for Python
 
+[![PyPI](https://img.shields.io/pypi/v/rs-avl.svg)](https://pypi.org/project/rs-avl/)
+[![Python](https://img.shields.io/pypi/pyversions/rs-avl.svg)](https://pypi.org/project/rs-avl/)
+[![Publish PyPI](https://github.com/anuradhawick/rs-avl/actions/workflows/pypi.yml/badge.svg)](https://github.com/anuradhawick/rs-avl/actions/workflows/pypi.yml)
+
 A fast AVL ordered set backed by Rust, with support for arbitrary comparable
 Python objects.
 
