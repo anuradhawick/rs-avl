@@ -5,6 +5,7 @@ build-backend = "maturin"
 [project]
 name = "rs-avl"
 description = "A fast AVL ordered set backed by Rust"
+readme = { file = "python_readme.md", content-type = "text/markdown" }
 requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -14,6 +15,12 @@ classifiers = [
     "Typing :: Typed",
 ]
 dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/anuradhawick/rs-avl"
+Documentation = "https://docs.rs/rs-avl"
+Repository = "https://github.com/anuradhawick/rs-avl"
+Issues = "https://github.com/anuradhawick/rs-avl/issues"
 
 [tool.maturin]
 bindings = "pyo3"

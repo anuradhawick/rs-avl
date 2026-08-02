@@ -1,0 +1,4 @@
+interface:
+  display_name: "Sync Python API"
+  short_description: "Keep PyO3 bindings aligned with Rust APIs"
+  default_prompt: "Use $sync-python-api to update the Python bindings, generated stubs, documentation, and tests after a Rust AVL API change."
