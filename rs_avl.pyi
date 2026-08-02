@@ -2,7 +2,7 @@
 Python bindings for `rs-avl`.
 """
 
-from typing import Any, Final, Iterable, final
+from typing import Any, Callable, Final, Iterable, final
 
 __all__: Final[list[str]]
 """
@@ -17,10 +17,10 @@ The installed `rs-avl` package version.
 @final
 class AVLTree:
     """
-    A height-balanced ordered set of signed 64-bit integers.
+    A height-balanced ordered set of comparable Python objects.
     
-    Values are unique, iteration is ascending, and search, insertion, and
-    removal take logarithmic time while the tree remains balanced.
+    Values are ordered directly unless `key` is an attribute name or a
+    callable. Equal keys are treated as duplicate set entries.
     """
     def __bool__(self, /) -> bool:
         """
@@ -28,43 +28,48 @@ class AVLTree:
         """
     def __contains__(self, /, value: Any) -> bool:
         """
-        Implement the `value in tree` membership operation.
+        Implement `value in tree` using the value's extracted key.
         """
     def __iter__(self, /) -> _AVLTreeIterator:
         """
-        Iterate over a snapshot of the values in ascending order.
+        Iterate over a snapshot of values in ascending key order.
         """
     def __len__(self, /) -> int:
         """
-        Return the number of unique values in the tree.
+        Return the number of unique keys in the tree.
         """
-    def __new__(cls, /, values: Iterable[int] |None = None) -> AVLTree:
+    def __new__(cls, /, values: Iterable[Any] |None = None, *, key: str |Callable[[Any], Any] |None = None) -> AVLTree:
         """
-        Create a tree from an optional iterable of integers.
+        Create a tree from optional values and a fixed key extractor.
         
-        Duplicate values from the iterable are stored only once.
+        `key` may be an attribute name, a one-argument callable, or `None`
+        to compare values directly. Duplicate keys are stored only once.
         """
     def __repr__(self, /) -> str:
         """
-        Return an unambiguous ascending representation of the tree.
+        Return an ascending representation of the stored values.
         """
     def clear(self, /) -> None:
         """
         Remove every value from the tree.
         """
-    def contains(self, /, value: int) -> bool:
+    def contains(self, /, value: Any) -> bool:
         """
-        Return whether `value` is present in the tree.
+        Return whether an entry matching `value`'s extracted key exists.
         """
-    def first(self, /) -> int |None:
+    def contains_key(self, /, key: Any) -> bool:
         """
-        Return the smallest value, or `None` when empty.
+        Return whether an already-extracted key exists.
         """
-    def get(self, /, value: int) -> int |None:
+    def first(self, /) -> Any |None:
+        """
+        Return the value with the smallest key, or `None` when empty.
+        """
+    def get(self, /, value: Any) -> Any |None:
         """
         Alias for `search`.
         """
-    def has_node(self, /, value: int) -> bool:
+    def has_node(self, /, value: Any) -> bool:
         """
         Compatibility alias for `contains`.
         """
@@ -75,29 +80,29 @@ class AVLTree:
         """
     def in_order(self, /) -> _AVLTreeIterator:
         """
-        Return a snapshot iterator in ascending order.
+        Return a snapshot iterator in ascending key order.
         """
-    def insert(self, /, value: int) -> bool:
+    def insert(self, /, value: Any) -> bool:
         """
-        Insert `value` and return `True` if it was not already present.
+        Insert `value` and return `True` if its key was not already present.
         """
     def is_empty(self, /) -> bool:
         """
         Return whether the tree contains no values.
         """
-    def last(self, /) -> int |None:
+    def last(self, /) -> Any |None:
         """
-        Return the largest value, or `None` when empty.
+        Return the value with the largest key, or `None` when empty.
         """
     def level_order(self, /) -> _AVLTreeIterator:
         """
         Return a breadth-first snapshot iterator, level by level.
         """
-    def max(self, /) -> int |None:
+    def max(self, /) -> Any |None:
         """
         Alias for `last`.
         """
-    def min(self, /) -> int |None:
+    def min(self, /) -> Any |None:
         """
         Alias for `first`.
         """
@@ -109,21 +114,28 @@ class AVLTree:
         """
         Return a snapshot iterator in root-left-right order.
         """
-    def range(self, /, start: int |None = None, end: int |None = None, *, include_start: bool = True, include_end: bool = False) -> _AVLTreeIterator:
+    def range(self, /, start: Any |None = None, end: Any |None = None, *, include_start: bool = True, include_end: bool = False) -> _AVLTreeIterator:
         """
-        Return an ascending snapshot iterator between optional endpoints.
+        Return values whose extracted keys fall between optional endpoints.
         
-        The start is inclusive and the end is exclusive by default. Use
-        `include_start` and `include_end` to change either boundary.
-        Raises `ValueError` when `start` is greater than `end`.
+        Endpoints are already-extracted keys. The start is inclusive and the
+        end is exclusive by default. Invalid or incomparable keys raise.
         """
-    def remove(self, /, value: int) -> bool:
+    def remove(self, /, value: Any) -> bool:
         """
-        Remove `value` and return `True` if it was present.
+        Remove the entry matching `value`'s extracted key.
         """
-    def search(self, /, value: int) -> int |None:
+    def remove_key(self, /, key: Any) -> bool:
         """
-        Return the stored value equal to `value`, or `None` when absent.
+        Remove the entry matching an already-extracted key.
+        """
+    def search(self, /, value: Any) -> Any |None:
+        """
+        Return the entry matching `value`'s extracted key, or `None`.
+        """
+    def search_key(self, /, key: Any) -> Any |None:
+        """
+        Return the entry matching an already-extracted key, or `None`.
         """
 
 @final
@@ -137,7 +149,7 @@ class _AVLTreeIterator:
         """
         Return this iterator object.
         """
-    def __next__(self, /) -> int:
+    def __next__(self, /) -> Any:
         """
         Return the next value, raising `StopIteration` when exhausted.
         """

@@ -1,37 +1,79 @@
-//! Python bindings for the integer-specialized AVL tree.
+//! Python bindings for arbitrary comparable objects.
 
-use std::ops::Bound as RangeBound;
-
-use pyo3::exceptions::{PyStopIteration, PyValueError};
+use pyo3::exceptions::{PyStopIteration, PyTypeError};
 use pyo3::inspect::PyStaticExpr;
 use pyo3::prelude::*;
-use pyo3::types::PyAny;
-use pyo3::{Borrowed, FromPyObject, type_hint_identifier, type_hint_subscript};
+use pyo3::types::{PyAny, PyString};
+use pyo3::{Borrowed, FromPyObject, type_hint_identifier, type_hint_subscript, type_hint_union};
 
-use crate::AvlTree;
+use crate::python_tree::{Entry, PythonAvlTree};
 
 /// Python bindings for `rs-avl`.
 #[pymodule]
 mod rs_avl {
     use super::*;
 
-    /// Extracts any Python iterable while advertising its precise input type.
-    struct IntIterable(Vec<i64>);
+    const ANY: PyStaticExpr = type_hint_identifier!("typing", "Any");
+    const CALLABLE_ARGUMENTS: PyStaticExpr = PyStaticExpr::List { elts: &[ANY] };
+    const KEY_CALLABLE: PyStaticExpr = type_hint_subscript!(
+        type_hint_identifier!("typing", "Callable"),
+        CALLABLE_ARGUMENTS,
+        ANY
+    );
 
-    impl<'a, 'py> FromPyObject<'a, 'py> for IntIterable {
+    struct PythonValues(Vec<Py<PyAny>>);
+
+    impl<'a, 'py> FromPyObject<'a, 'py> for PythonValues {
         type Error = PyErr;
 
         const INPUT_TYPE: PyStaticExpr = type_hint_subscript!(
             type_hint_identifier!("typing", "Iterable"),
-            type_hint_identifier!("builtins", "int")
+            type_hint_identifier!("typing", "Any")
         );
 
         fn extract(value: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
             let mut values = Vec::new();
             for value in value.try_iter()? {
-                values.push(value?.extract()?);
+                values.push(value?.unbind());
             }
             Ok(Self(values))
+        }
+    }
+
+    enum KeyExtractor {
+        Identity,
+        Attribute(String),
+        Callable(Py<PyAny>),
+    }
+
+    impl KeyExtractor {
+        fn extract(&self, py: Python<'_>, value: &Py<PyAny>) -> PyResult<Py<PyAny>> {
+            match self {
+                Self::Identity => Ok(value.clone_ref(py)),
+                Self::Attribute(name) => Ok(value.bind(py).getattr(name.as_str())?.unbind()),
+                Self::Callable(callable) => {
+                    Ok(callable.bind(py).call1((value.bind(py),))?.unbind())
+                }
+            }
+        }
+    }
+
+    impl<'a, 'py> FromPyObject<'a, 'py> for KeyExtractor {
+        type Error = PyErr;
+
+        const INPUT_TYPE: PyStaticExpr =
+            type_hint_union!(type_hint_identifier!("builtins", "str"), KEY_CALLABLE);
+
+        fn extract(value: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
+            if let Ok(name) = value.cast::<PyString>() {
+                return Ok(Self::Attribute(name.to_str()?.to_owned()));
+            }
+            if value.is_callable() {
+                return Ok(Self::Callable(value.to_owned().unbind()));
+            }
+            Err(PyTypeError::new_err(
+                "key must be an attribute name, a callable, or None",
+            ))
         }
     }
 
@@ -45,60 +87,86 @@ mod rs_avl {
     /// Names exported by `from rs_avl import *`.
     pub const __all__: [&str; 2] = ["AVLTree", "__version__"];
 
-    /// A height-balanced ordered set of signed 64-bit integers.
+    /// A height-balanced ordered set of comparable Python objects.
     ///
-    /// Values are unique, iteration is ascending, and search, insertion, and
-    /// removal take logarithmic time while the tree remains balanced.
+    /// Values are ordered directly unless `key` is an attribute name or a
+    /// callable. Equal keys are treated as duplicate set entries.
     #[pyclass(name = "AVLTree", module = "rs_avl")]
     struct PyAVLTree {
-        inner: AvlTree<i64>,
+        inner: PythonAvlTree,
+        key: KeyExtractor,
     }
 
     #[pymethods]
     impl PyAVLTree {
-        /// Create a tree from an optional iterable of integers.
+        /// Create a tree from optional values and a fixed key extractor.
         ///
-        /// Duplicate values from the iterable are stored only once.
+        /// `key` may be an attribute name, a one-argument callable, or `None`
+        /// to compare values directly. Duplicate keys are stored only once.
         #[new]
-        #[pyo3(signature = (values = None))]
-        fn new(values: Option<IntIterable>) -> Self {
-            let mut inner = AvlTree::new();
+        #[pyo3(signature = (values = None, *, key = None))]
+        fn new(
+            py: Python<'_>,
+            values: Option<PythonValues>,
+            key: Option<KeyExtractor>,
+        ) -> PyResult<Self> {
+            let key = key.unwrap_or(KeyExtractor::Identity);
+            let mut inner = PythonAvlTree::default();
             if let Some(values) = values {
                 for value in values.0 {
-                    inner.insert(value);
+                    let extracted = key.extract(py, &value)?;
+                    inner.insert(py, Entry::new(value, extracted))?;
                 }
             }
-            Self { inner }
+            Ok(Self { inner, key })
         }
 
-        /// Insert `value` and return `True` if it was not already present.
-        fn insert(&mut self, value: i64) -> bool {
-            self.inner.insert(value)
+        /// Insert `value` and return `True` if its key was not already present.
+        fn insert(&mut self, py: Python<'_>, value: Py<PyAny>) -> PyResult<bool> {
+            let key = self.key.extract(py, &value)?;
+            self.inner.insert(py, Entry::new(value, key))
         }
 
-        /// Remove `value` and return `True` if it was present.
-        fn remove(&mut self, value: i64) -> bool {
-            self.inner.remove(&value)
+        /// Remove the entry matching `value`'s extracted key.
+        fn remove(&mut self, py: Python<'_>, value: Py<PyAny>) -> PyResult<bool> {
+            let key = self.key.extract(py, &value)?;
+            self.inner.remove(py, &key)
         }
 
-        /// Return the stored value equal to `value`, or `None` when absent.
-        fn search(&self, value: i64) -> Option<i64> {
-            self.inner.search(&value).copied()
+        /// Remove the entry matching an already-extracted key.
+        fn remove_key(&mut self, py: Python<'_>, key: Py<PyAny>) -> PyResult<bool> {
+            self.inner.remove(py, &key)
+        }
+
+        /// Return the entry matching `value`'s extracted key, or `None`.
+        fn search(&self, py: Python<'_>, value: Py<PyAny>) -> PyResult<Option<Py<PyAny>>> {
+            let key = self.key.extract(py, &value)?;
+            self.inner.search(py, &key)
         }
 
         /// Alias for `search`.
-        fn get(&self, value: i64) -> Option<i64> {
-            self.search(value)
+        fn get(&self, py: Python<'_>, value: Py<PyAny>) -> PyResult<Option<Py<PyAny>>> {
+            self.search(py, value)
         }
 
-        /// Return whether `value` is present in the tree.
-        fn contains(&self, value: i64) -> bool {
-            self.inner.contains(&value)
+        /// Return the entry matching an already-extracted key, or `None`.
+        fn search_key(&self, py: Python<'_>, key: Py<PyAny>) -> PyResult<Option<Py<PyAny>>> {
+            self.inner.search(py, &key)
+        }
+
+        /// Return whether an entry matching `value`'s extracted key exists.
+        fn contains(&self, py: Python<'_>, value: Py<PyAny>) -> PyResult<bool> {
+            Ok(self.search(py, value)?.is_some())
         }
 
         /// Compatibility alias for `contains`.
-        fn has_node(&self, value: i64) -> bool {
-            self.contains(value)
+        fn has_node(&self, py: Python<'_>, value: Py<PyAny>) -> PyResult<bool> {
+            self.contains(py, value)
+        }
+
+        /// Return whether an already-extracted key exists.
+        fn contains_key(&self, py: Python<'_>, key: Py<PyAny>) -> PyResult<bool> {
+            Ok(self.inner.search(py, &key)?.is_some())
         }
 
         /// Remove every value from the tree.
@@ -117,80 +185,69 @@ mod rs_avl {
             self.inner.height()
         }
 
-        /// Return the smallest value, or `None` when empty.
-        fn first(&self) -> Option<i64> {
-            self.inner.first().copied()
+        /// Return the value with the smallest key, or `None` when empty.
+        fn first(&self, py: Python<'_>) -> Option<Py<PyAny>> {
+            self.inner.first(py)
         }
 
         /// Alias for `first`.
-        fn min(&self) -> Option<i64> {
-            self.first()
+        fn min(&self, py: Python<'_>) -> Option<Py<PyAny>> {
+            self.first(py)
         }
 
-        /// Return the largest value, or `None` when empty.
-        fn last(&self) -> Option<i64> {
-            self.inner.last().copied()
+        /// Return the value with the largest key, or `None` when empty.
+        fn last(&self, py: Python<'_>) -> Option<Py<PyAny>> {
+            self.inner.last(py)
         }
 
         /// Alias for `last`.
-        fn max(&self) -> Option<i64> {
-            self.last()
+        fn max(&self, py: Python<'_>) -> Option<Py<PyAny>> {
+            self.last(py)
         }
 
-        /// Return an ascending snapshot iterator between optional endpoints.
+        /// Return values whose extracted keys fall between optional endpoints.
         ///
-        /// The start is inclusive and the end is exclusive by default. Use
-        /// `include_start` and `include_end` to change either boundary.
-        /// Raises `ValueError` when `start` is greater than `end`.
+        /// Endpoints are already-extracted keys. The start is inclusive and the
+        /// end is exclusive by default. Invalid or incomparable keys raise.
         #[pyo3(signature = (start = None, end = None, *, include_start = true, include_end = false))]
         fn range(
             &self,
-            start: Option<i64>,
-            end: Option<i64>,
+            py: Python<'_>,
+            start: Option<Py<PyAny>>,
+            end: Option<Py<PyAny>>,
             include_start: bool,
             include_end: bool,
         ) -> PyResult<PyAVLTreeIterator> {
-            if start.zip(end).is_some_and(|(start, end)| start > end) {
-                return Err(PyValueError::new_err("range start must not exceed end"));
-            }
-
-            let start = match (start, include_start) {
-                (Some(value), true) => RangeBound::Included(value),
-                (Some(value), false) => RangeBound::Excluded(value),
-                (None, _) => RangeBound::Unbounded,
-            };
-            let end = match (end, include_end) {
-                (Some(value), true) => RangeBound::Included(value),
-                (Some(value), false) => RangeBound::Excluded(value),
-                (None, _) => RangeBound::Unbounded,
-            };
-
-            Ok(PyAVLTreeIterator::new(
-                self.inner.range((start, end)).copied().collect(),
-            ))
+            Ok(PyAVLTreeIterator::new(self.inner.range(
+                py,
+                start.as_ref(),
+                end.as_ref(),
+                include_start,
+                include_end,
+            )?))
         }
 
-        /// Return a snapshot iterator in ascending order.
-        fn in_order(&self) -> PyAVLTreeIterator {
-            PyAVLTreeIterator::new(self.inner.in_order().copied().collect())
+        /// Return a snapshot iterator in ascending key order.
+        fn in_order(&self, py: Python<'_>) -> PyAVLTreeIterator {
+            PyAVLTreeIterator::new(self.inner.in_order(py))
         }
 
         /// Return a snapshot iterator in root-left-right order.
-        fn pre_order(&self) -> PyAVLTreeIterator {
-            PyAVLTreeIterator::new(self.inner.pre_order().copied().collect())
+        fn pre_order(&self, py: Python<'_>) -> PyAVLTreeIterator {
+            PyAVLTreeIterator::new(self.inner.pre_order(py))
         }
 
         /// Return a snapshot iterator in left-right-root order.
-        fn post_order(&self) -> PyAVLTreeIterator {
-            PyAVLTreeIterator::new(self.inner.post_order().copied().collect())
+        fn post_order(&self, py: Python<'_>) -> PyAVLTreeIterator {
+            PyAVLTreeIterator::new(self.inner.post_order(py))
         }
 
         /// Return a breadth-first snapshot iterator, level by level.
-        fn level_order(&self) -> PyAVLTreeIterator {
-            PyAVLTreeIterator::new(self.inner.level_order().copied().collect())
+        fn level_order(&self, py: Python<'_>) -> PyAVLTreeIterator {
+            PyAVLTreeIterator::new(self.inner.level_order(py))
         }
 
-        /// Return the number of unique values in the tree.
+        /// Return the number of unique keys in the tree.
         fn __len__(&self) -> usize {
             self.inner.len()
         }
@@ -200,22 +257,25 @@ mod rs_avl {
             !self.inner.is_empty()
         }
 
-        /// Implement the `value in tree` membership operation.
-        fn __contains__(&self, value: &Bound<'_, PyAny>) -> bool {
-            value
-                .extract::<i64>()
-                .is_ok_and(|value| self.inner.contains(&value))
+        /// Implement `value in tree` using the value's extracted key.
+        fn __contains__(&self, py: Python<'_>, value: Py<PyAny>) -> PyResult<bool> {
+            self.contains(py, value)
         }
 
-        /// Iterate over a snapshot of the values in ascending order.
-        fn __iter__(&self) -> PyAVLTreeIterator {
-            self.in_order()
+        /// Iterate over a snapshot of values in ascending key order.
+        fn __iter__(&self, py: Python<'_>) -> PyAVLTreeIterator {
+            self.in_order(py)
         }
 
-        /// Return an unambiguous ascending representation of the tree.
-        fn __repr__(&self) -> String {
-            let values = self.inner.iter().copied().collect::<Vec<_>>();
-            format!("AVLTree({values:?})")
+        /// Return an ascending representation of the stored values.
+        fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
+            let representations = self
+                .inner
+                .in_order(py)
+                .into_iter()
+                .map(|value| Ok(value.bind(py).repr()?.to_str()?.to_owned()))
+                .collect::<PyResult<Vec<_>>>()?;
+            Ok(format!("AVLTree([{}])", representations.join(", ")))
         }
     }
 
@@ -224,11 +284,11 @@ mod rs_avl {
     /// Mutating or clearing the source tree does not invalidate this iterator.
     #[pyclass(name = "_AVLTreeIterator", module = "rs_avl")]
     struct PyAVLTreeIterator {
-        values: std::vec::IntoIter<i64>,
+        values: std::vec::IntoIter<Py<PyAny>>,
     }
 
     impl PyAVLTreeIterator {
-        fn new(values: Vec<i64>) -> Self {
+        fn new(values: Vec<Py<PyAny>>) -> Self {
             Self {
                 values: values.into_iter(),
             }
@@ -243,7 +303,7 @@ mod rs_avl {
         }
 
         /// Return the next value, raising `StopIteration` when exhausted.
-        fn __next__(&mut self) -> PyResult<i64> {
+        fn __next__(&mut self) -> PyResult<Py<PyAny>> {
             self.values
                 .next()
                 .ok_or_else(|| PyStopIteration::new_err(()))

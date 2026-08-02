@@ -2,5 +2,6 @@
 
 pub mod avl;
 mod python;
+mod python_tree;
 
 pub use avl::{AVLNode, AVLTree, AvlTree};
