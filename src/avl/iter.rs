@@ -1,0 +1,201 @@
+use std::borrow::Borrow;
+use std::collections::VecDeque;
+use std::marker::PhantomData;
+use std::ops::{Bound, RangeBounds};
+
+use super::node::AVLNode;
+
+/// An iterator over values in ascending order.
+pub struct Iter<'a, T> {
+    stack: Vec<&'a AVLNode<T>>,
+}
+
+impl<'a, T> Iter<'a, T> {
+    pub(crate) fn new(root: Option<&'a AVLNode<T>>) -> Self {
+        let mut iter = Self { stack: Vec::new() };
+        iter.push_left(root);
+        iter
+    }
+
+    fn push_left(&mut self, mut node: Option<&'a AVLNode<T>>) {
+        while let Some(current) = node {
+            self.stack.push(current);
+            node = current.left.as_deref();
+        }
+    }
+}
+
+impl<'a, T> Iterator for Iter<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let node = self.stack.pop()?;
+        self.push_left(node.right.as_deref());
+        Some(&node.value)
+    }
+}
+
+/// A root-left-right traversal iterator.
+pub struct PreOrder<'a, T> {
+    stack: Vec<&'a AVLNode<T>>,
+}
+
+impl<'a, T> PreOrder<'a, T> {
+    pub(crate) fn new(root: Option<&'a AVLNode<T>>) -> Self {
+        Self {
+            stack: root.into_iter().collect(),
+        }
+    }
+}
+
+impl<'a, T> Iterator for PreOrder<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let node = self.stack.pop()?;
+        if let Some(right) = node.right.as_deref() {
+            self.stack.push(right);
+        }
+        if let Some(left) = node.left.as_deref() {
+            self.stack.push(left);
+        }
+        Some(&node.value)
+    }
+}
+
+/// A left-right-root traversal iterator.
+pub struct PostOrder<'a, T> {
+    stack: Vec<(&'a AVLNode<T>, bool)>,
+}
+
+impl<'a, T> PostOrder<'a, T> {
+    pub(crate) fn new(root: Option<&'a AVLNode<T>>) -> Self {
+        Self {
+            stack: root.into_iter().map(|node| (node, false)).collect(),
+        }
+    }
+}
+
+impl<'a, T> Iterator for PostOrder<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some((node, visited)) = self.stack.pop() {
+            if visited {
+                return Some(&node.value);
+            }
+            self.stack.push((node, true));
+            if let Some(right) = node.right.as_deref() {
+                self.stack.push((right, false));
+            }
+            if let Some(left) = node.left.as_deref() {
+                self.stack.push((left, false));
+            }
+        }
+        None
+    }
+}
+
+/// A breadth-first traversal iterator.
+pub struct LevelOrder<'a, T> {
+    queue: VecDeque<&'a AVLNode<T>>,
+}
+
+impl<'a, T> LevelOrder<'a, T> {
+    pub(crate) fn new(root: Option<&'a AVLNode<T>>) -> Self {
+        Self {
+            queue: root.into_iter().collect(),
+        }
+    }
+}
+
+impl<'a, T> Iterator for LevelOrder<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let node = self.queue.pop_front()?;
+        if let Some(left) = node.left.as_deref() {
+            self.queue.push_back(left);
+        }
+        if let Some(right) = node.right.as_deref() {
+            self.queue.push_back(right);
+        }
+        Some(&node.value)
+    }
+}
+
+/// An ascending iterator limited to a key range.
+pub struct Range<'a, T, Q: ?Sized, R> {
+    stack: Vec<&'a AVLNode<T>>,
+    bounds: R,
+    finished: bool,
+    marker: PhantomData<&'a Q>,
+}
+
+impl<'a, T, Q, R> Range<'a, T, Q, R>
+where
+    T: Borrow<Q>,
+    Q: Ord + ?Sized,
+    R: RangeBounds<Q>,
+{
+    pub(crate) fn new(root: Option<&'a AVLNode<T>>, bounds: R) -> Self {
+        let mut range = Self {
+            stack: Vec::new(),
+            bounds,
+            finished: false,
+            marker: PhantomData,
+        };
+        range.push_candidates(root);
+        range
+    }
+
+    fn below_start(&self, value: &Q) -> bool {
+        match self.bounds.start_bound() {
+            Bound::Included(start) => value < start,
+            Bound::Excluded(start) => value <= start,
+            Bound::Unbounded => false,
+        }
+    }
+
+    fn beyond_end(&self, value: &Q) -> bool {
+        match self.bounds.end_bound() {
+            Bound::Included(end) => value > end,
+            Bound::Excluded(end) => value >= end,
+            Bound::Unbounded => false,
+        }
+    }
+
+    fn push_candidates(&mut self, mut node: Option<&'a AVLNode<T>>) {
+        while let Some(current) = node {
+            if self.below_start(current.value.borrow()) {
+                node = current.right.as_deref();
+            } else {
+                self.stack.push(current);
+                node = current.left.as_deref();
+            }
+        }
+    }
+}
+
+impl<'a, T, Q, R> Iterator for Range<'a, T, Q, R>
+where
+    T: Borrow<Q>,
+    Q: Ord + ?Sized,
+    R: RangeBounds<Q>,
+{
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.finished {
+            return None;
+        }
+        let node = self.stack.pop()?;
+        if self.beyond_end(node.value.borrow()) {
+            self.finished = true;
+            self.stack.clear();
+            return None;
+        }
+        self.push_candidates(node.right.as_deref());
+        Some(&node.value)
+    }
+}
