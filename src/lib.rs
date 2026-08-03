@@ -1,15 +1,15 @@
 //! A generic AVL ordered set with logarithmic search and updates.
 //!
-//! [`AvlTree`] stores unique ordered values and provides insertion, removal,
+//! [`AVLTree`] stores unique ordered values and provides insertion, removal,
 //! borrowed-key search, lazy traversals, and bounded range iteration. Tree
 //! height is maintained automatically through AVL rotations.
 //!
 //! # Example
 //!
 //! ```
-//! use rs_avl::AvlTree;
+//! use rs_avl::AVLTree;
 //!
-//! let mut tree = AvlTree::new();
+//! let mut tree = AVLTree::new();
 //! tree.extend([4, 2, 6, 1, 3, 5, 7]);
 //!
 //! assert!(tree.contains(&5));
@@ -21,4 +21,4 @@ pub mod avl;
 mod python;
 mod python_tree;
 
-pub use avl::{AVLNode, AVLTree, AvlTree};
+pub use avl::{AVLNode, AVLTree};

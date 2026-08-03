@@ -8,12 +8,12 @@ use super::iter::{Iter, LevelOrder, PostOrder, PreOrder, Range};
 use super::node::{AVLNode, Link, height, rebalance};
 
 /// A height-balanced binary search tree storing unique values.
-pub struct AvlTree<T> {
+pub struct AVLTree<T> {
     root: Link<T>,
     len: usize,
 }
 
-impl<T> AvlTree<T> {
+impl<T> AVLTree<T> {
     /// Creates an empty tree.
     pub const fn new() -> Self {
         Self { root: None, len: 0 }
@@ -71,7 +71,7 @@ impl<T> AvlTree<T> {
     }
 }
 
-impl<T: Ord> AvlTree<T> {
+impl<T: Ord> AVLTree<T> {
     /// Inserts `value`, returning `false` if it was already present.
     pub fn insert(&mut self, value: T) -> bool {
         let (root, inserted) = insert_node(self.root.take(), value);
@@ -251,13 +251,13 @@ fn take_min<T>(mut node: Box<AVLNode<T>>) -> (Link<T>, Box<AVLNode<T>>) {
     }
 }
 
-impl<T> Default for AvlTree<T> {
+impl<T> Default for AVLTree<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: Ord> Extend<T> for AvlTree<T> {
+impl<T: Ord> Extend<T> for AVLTree<T> {
     fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
         for value in iter {
             self.insert(value);
@@ -265,7 +265,7 @@ impl<T: Ord> Extend<T> for AvlTree<T> {
     }
 }
 
-impl<T: Ord> FromIterator<T> for AvlTree<T> {
+impl<T: Ord> FromIterator<T> for AVLTree<T> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let mut tree = Self::new();
         tree.extend(iter);
@@ -273,7 +273,7 @@ impl<T: Ord> FromIterator<T> for AvlTree<T> {
     }
 }
 
-impl<'a, T> IntoIterator for &'a AvlTree<T> {
+impl<'a, T> IntoIterator for &'a AVLTree<T> {
     type Item = &'a T;
     type IntoIter = Iter<'a, T>;
 
@@ -282,7 +282,7 @@ impl<'a, T> IntoIterator for &'a AvlTree<T> {
     }
 }
 
-impl<T: fmt::Debug> fmt::Debug for AvlTree<T> {
+impl<T: fmt::Debug> fmt::Debug for AVLTree<T> {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.debug_set().entries(self.iter()).finish()
     }

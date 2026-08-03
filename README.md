@@ -8,7 +8,7 @@
 [![Publish PyPI](https://github.com/anuradhawick/rs-avl/actions/workflows/pypi.yml/badge.svg)](https://github.com/anuradhawick/rs-avl/actions/workflows/pypi.yml)
 
 `rs-avl` is a height-balanced ordered set for Rust and Python. The Rust crate
-provides a generic `AvlTree<T: Ord>`; the Python extension stores arbitrary
+provides a generic `AVLTree<T: Ord>`; the Python extension stores arbitrary
 comparable objects and supports attribute-name or callable key extraction.
 
 - Rust package: `rs-avl` on crates.io

@@ -32,9 +32,9 @@ rs-avl = "0.1"
 ## Quick start
 
 ```rust
-use rs_avl::AvlTree;
+use rs_avl::AVLTree;
 
-let mut tree: AvlTree<_> = [4, 2, 6, 1, 3, 5, 7].into_iter().collect();
+let mut tree: AVLTree<_> = [4, 2, 6, 1, 3, 5, 7].into_iter().collect();
 
 assert!(tree.insert(8));
 assert!(!tree.insert(8));
@@ -51,7 +51,7 @@ struct a lexicographic ordering based on its field order. Here, releases sort
 by semantic version first, then by channel and title:
 
 ```rust
-use rs_avl::AvlTree;
+use rs_avl::AVLTree;
 
 #[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
 struct Release {
@@ -60,7 +60,7 @@ struct Release {
     title: String,
 }
 
-let mut releases = AvlTree::new();
+let mut releases = AVLTree::new();
 
 releases.insert(Release {
     version: (2, 0, 0),

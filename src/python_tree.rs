@@ -2,7 +2,7 @@
 //!
 //! Rust's [`Ord`] trait cannot represent Python comparison errors. This module
 //! therefore keeps a small Python-specific AVL implementation whose operations
-//! return [`PyResult`]. The public Rust [`AvlTree`](crate::AvlTree) remains
+//! return [`PyResult`]. The public Rust [`AVLTree`](crate::AVLTree) remains
 //! generic and uses ordinary infallible Rust ordering.
 
 use std::cmp::Ordering;

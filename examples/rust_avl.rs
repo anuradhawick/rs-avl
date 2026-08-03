@@ -1,7 +1,7 @@
-use rs_avl::AvlTree;
+use rs_avl::AVLTree;
 
 fn main() {
-    let mut tree: AvlTree<_> = [30, 10, 20, 40, 50].into_iter().collect();
+    let mut tree: AVLTree<_> = [30, 10, 20, 40, 50].into_iter().collect();
 
     println!("ascending: {:?}", tree.iter().collect::<Vec<_>>());
     println!(

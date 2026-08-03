@@ -2,9 +2,9 @@
 
 pub(crate) type Link<T> = Option<Box<AVLNode<T>>>;
 
-/// A read-only view of a node in an [`AvlTree`](super::AvlTree).
+/// A read-only view of a node in an [`AVLTree`](super::AVLTree).
 ///
-/// Tree mutations are deliberately kept on `AvlTree` so callers cannot break
+/// Tree mutations are deliberately kept on `AVLTree` so callers cannot break
 /// the ordering or balance invariants.
 #[derive(Debug)]
 pub struct AVLNode<T> {

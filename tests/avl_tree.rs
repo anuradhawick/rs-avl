@@ -1,9 +1,9 @@
 use std::collections::BTreeSet;
 use std::ops::Bound::{Excluded, Included};
 
-use rs_avl::{AVLNode, AVLTree, AvlTree};
+use rs_avl::{AVLNode, AVLTree};
 
-fn assert_invariants<T: Ord + std::fmt::Debug>(tree: &AvlTree<T>) {
+fn assert_invariants<T: Ord + std::fmt::Debug>(tree: &AVLTree<T>) {
     fn visit<T: Ord + std::fmt::Debug>(
         node: Option<&AVLNode<T>>,
         lower: Option<&T>,
@@ -37,7 +37,7 @@ fn assert_invariants<T: Ord + std::fmt::Debug>(tree: &AvlTree<T>) {
 #[test]
 fn insertion_handles_all_four_rotation_shapes() {
     for values in [[30, 20, 10], [30, 10, 20], [10, 20, 30], [10, 30, 20]] {
-        let tree: AvlTree<_> = values.into_iter().collect();
+        let tree: AVLTree<_> = values.into_iter().collect();
         assert_eq!(tree.root().map(AVLNode::value), Some(&20));
         assert_eq!(tree.iter().copied().collect::<Vec<_>>(), [10, 20, 30]);
         assert_invariants(&tree);
@@ -71,7 +71,7 @@ fn insert_search_and_duplicate_semantics_are_set_like() {
 
 #[test]
 fn removal_rebalances_leaf_single_child_and_two_child_cases() {
-    let mut tree: AvlTree<_> = (0..100).collect();
+    let mut tree: AVLTree<_> = (0..100).collect();
 
     for value in [99, 98, 50, 0, 64, 32, 31, 63, 10, 20, 40] {
         assert!(tree.remove(&value));
@@ -87,7 +87,7 @@ fn removal_rebalances_leaf_single_child_and_two_child_cases() {
 
 #[test]
 fn ranges_observe_inclusive_exclusive_and_unbounded_limits() {
-    let tree: AvlTree<_> = (0..10).collect();
+    let tree: AVLTree<_> = (0..10).collect();
 
     assert_eq!(tree.range(3..7).copied().collect::<Vec<_>>(), [3, 4, 5, 6]);
     assert_eq!(
@@ -106,7 +106,7 @@ fn ranges_observe_inclusive_exclusive_and_unbounded_limits() {
 
 #[test]
 fn traversal_iterators_have_their_documented_order() {
-    let tree: AvlTree<_> = [4, 2, 6, 1, 3, 5, 7].into_iter().collect();
+    let tree: AVLTree<_> = [4, 2, 6, 1, 3, 5, 7].into_iter().collect();
 
     assert_eq!(
         tree.in_order().copied().collect::<Vec<_>>(),
@@ -135,7 +135,7 @@ fn values_do_not_need_to_implement_clone() {
     #[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
     struct NotClone(i32);
 
-    let mut tree = AvlTree::new();
+    let mut tree = AVLTree::new();
     for value in [2, 1, 4, 3, 5] {
         tree.insert(NotClone(value));
     }
@@ -149,7 +149,7 @@ fn values_do_not_need_to_implement_clone() {
 
 #[test]
 fn clear_restores_the_empty_state() {
-    let mut tree: AvlTree<_> = (1..=5).collect();
+    let mut tree: AVLTree<_> = (1..=5).collect();
     tree.clear();
 
     assert!(tree.is_empty());
@@ -162,7 +162,7 @@ fn clear_restores_the_empty_state() {
 
 #[test]
 fn mixed_updates_match_the_standard_ordered_set() {
-    let mut tree = AvlTree::new();
+    let mut tree = AVLTree::new();
     let mut expected = BTreeSet::new();
     let mut state = 0x1234_5678_u32;
 
