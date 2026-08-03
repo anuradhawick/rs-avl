@@ -241,9 +241,26 @@ mod rs_avl {
             ))
         }
 
+        /// Return at most `count` values from an inclusive upper-bound key.
+        /// Values are returned in descending order. `end` is an already-
+        /// extracted key; if absent, iteration begins at the first smaller key.
+        fn iter_to(
+            &self,
+            py: Python<'_>,
+            end: Py<PyAny>,
+            count: usize,
+        ) -> PyResult<PyAVLTreeIterator> {
+            Ok(PyAVLTreeIterator::new(self.inner.iter_to(py, &end, count)?))
+        }
+
         /// Return a snapshot iterator in ascending key order.
         fn in_order(&self, py: Python<'_>) -> PyAVLTreeIterator {
             PyAVLTreeIterator::new(self.inner.in_order(py))
+        }
+
+        /// Return a snapshot iterator in descending key order.
+        fn descending(&self, py: Python<'_>) -> PyAVLTreeIterator {
+            PyAVLTreeIterator::new(self.inner.descending(py))
         }
 
         /// Return a snapshot iterator in root-left-right order.

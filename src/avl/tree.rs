@@ -4,7 +4,7 @@ use std::fmt;
 use std::iter::FromIterator;
 use std::ops::RangeBounds;
 
-use super::iter::{Iter, IterFrom, LevelOrder, PostOrder, PreOrder, Range};
+use super::iter::{Iter, IterFrom, IterTo, LevelOrder, PostOrder, PreOrder, Range};
 use super::node::{AVLNode, Link, height, rebalance};
 
 /// A height-balanced binary search tree storing unique values.
@@ -46,8 +46,11 @@ impl<T> AVLTree<T> {
     }
 
     /// Iterates over values in ascending (in-order) sequence.
+    ///
+    /// The iterator is double-ended, so [`rev`](Iterator::rev) yields values in
+    /// descending order.
     pub fn iter(&self) -> Iter<'_, T> {
-        Iter::new(self.root.as_deref())
+        Iter::new(self.root.as_deref(), self.len)
     }
 
     /// Alias for [`iter`](Self::iter).
@@ -189,6 +192,19 @@ impl<T: Ord> AVLTree<T> {
         Q: Ord + ?Sized,
     {
         IterFrom::new(self.root.as_deref(), start, count)
+    }
+
+    /// Iterates over at most `count` values from the inclusive upper bound.
+    ///
+    /// Values are yielded in descending order. If `end` is absent, iteration
+    /// begins at the first smaller value. Finding the end costs `O(log n)` and
+    /// yielding the values costs `O(count)`.
+    pub fn iter_to<Q>(&self, end: &Q, count: usize) -> IterTo<'_, T>
+    where
+        T: Borrow<Q>,
+        Q: Ord + ?Sized,
+    {
+        IterTo::new(self.root.as_deref(), end, count)
     }
 }
 

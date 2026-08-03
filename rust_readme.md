@@ -42,6 +42,8 @@ assert!(!tree.insert(8));
 assert_eq!(tree.search(&3), Some(&3));
 assert_eq!(tree.range(2..=5).copied().collect::<Vec<_>>(), [2, 3, 4, 5]);
 assert_eq!(tree.iter_from(&5, 3).copied().collect::<Vec<_>>(), [5, 6, 7]);
+assert_eq!(tree.iter_to(&5, 3).copied().collect::<Vec<_>>(), [5, 4, 3]);
+assert_eq!(tree.iter().rev().copied().collect::<Vec<_>>(), [8, 7, 6, 5, 4, 3, 2, 1]);
 assert_eq!(tree.iter().copied().collect::<Vec<_>>(), [1, 2, 3, 4, 5, 6, 7, 8]);
 assert!(tree.remove(&4));
 ```
@@ -97,7 +99,8 @@ manually and the AVL tree will follow those rules everywhere.
 
 ## Traversal and inspection
 
-`iter()` and `in_order()` yield ascending values. `pre_order()`,
+`iter()` and `in_order()` yield ascending values, and `iter().rev()` yields
+descending values through Rust's `DoubleEndedIterator`. `pre_order()`,
 `post_order()`, and `level_order()` expose the tree's current balanced shape,
 which is useful for visualization and teaching. `root()` provides read-only
 node inspection without allowing callers to break ordering or height

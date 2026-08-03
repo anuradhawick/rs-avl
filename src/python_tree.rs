@@ -126,6 +126,13 @@ impl PythonAvlTree {
         values
     }
 
+    /// Return values in descending key order.
+    pub(crate) fn descending(&self, py: Python<'_>) -> Vec<Py<PyAny>> {
+        let mut values = Vec::with_capacity(self.len);
+        collect_descending(self.root.as_deref(), py, &mut values);
+        values
+    }
+
     /// Return values in root-left-right order.
     pub(crate) fn pre_order(&self, py: Python<'_>) -> Vec<Py<PyAny>> {
         let mut values = Vec::with_capacity(self.len);
@@ -226,6 +233,47 @@ impl PythonAvlTree {
             while let Some(next) = successor {
                 stack.push(next);
                 successor = next.left.as_deref();
+            }
+        }
+        Ok(values)
+    }
+
+    /// Collect at most `count` values from an inclusive upper-bound key.
+    ///
+    /// Values are returned in descending order. If `end` is absent, collection
+    /// begins at the first smaller key.
+    pub(crate) fn iter_to(
+        &self,
+        py: Python<'_>,
+        end: &Py<PyAny>,
+        count: usize,
+    ) -> PyResult<Vec<Py<PyAny>>> {
+        let mut values = Vec::with_capacity(count.min(self.len));
+        if count == 0 {
+            return Ok(values);
+        }
+
+        let mut stack = Vec::new();
+        let mut node = self.root.as_deref();
+        while let Some(current) = node {
+            if compare(py, &current.entry.key, end)? == Ordering::Greater {
+                node = current.left.as_deref();
+            } else {
+                stack.push(current);
+                node = current.right.as_deref();
+            }
+        }
+
+        while values.len() < count {
+            let Some(current) = stack.pop() else {
+                break;
+            };
+            values.push(current.entry.value.clone_ref(py));
+
+            let mut predecessor = current.left.as_deref();
+            while let Some(previous) = predecessor {
+                stack.push(previous);
+                predecessor = previous.right.as_deref();
             }
         }
         Ok(values)
@@ -386,6 +434,14 @@ fn collect_in_order(node: Option<&Node>, py: Python<'_>, values: &mut Vec<Py<PyA
         collect_in_order(node.left.as_deref(), py, values);
         values.push(node.entry.value.clone_ref(py));
         collect_in_order(node.right.as_deref(), py, values);
+    }
+}
+
+fn collect_descending(node: Option<&Node>, py: Python<'_>, values: &mut Vec<Py<PyAny>>) {
+    if let Some(node) = node {
+        collect_descending(node.right.as_deref(), py, values);
+        values.push(node.entry.value.clone_ref(py));
+        collect_descending(node.left.as_deref(), py, values);
     }
 }
 

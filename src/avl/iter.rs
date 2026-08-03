@@ -1,26 +1,41 @@
 use std::borrow::Borrow;
 use std::collections::VecDeque;
+use std::iter::FusedIterator;
 use std::marker::PhantomData;
 use std::ops::{Bound, RangeBounds};
 
 use super::node::AVLNode;
 
-/// An iterator over values in ascending order.
+/// A double-ended iterator over values in sorted order.
 pub struct Iter<'a, T> {
-    stack: Vec<&'a AVLNode<T>>,
+    front_stack: Vec<&'a AVLNode<T>>,
+    back_stack: Vec<&'a AVLNode<T>>,
+    remaining: usize,
 }
 
 impl<'a, T> Iter<'a, T> {
-    pub(crate) fn new(root: Option<&'a AVLNode<T>>) -> Self {
-        let mut iter = Self { stack: Vec::new() };
+    pub(crate) fn new(root: Option<&'a AVLNode<T>>, len: usize) -> Self {
+        let mut iter = Self {
+            front_stack: Vec::new(),
+            back_stack: Vec::new(),
+            remaining: len,
+        };
         iter.push_left(root);
+        iter.push_right(root);
         iter
     }
 
     fn push_left(&mut self, mut node: Option<&'a AVLNode<T>>) {
         while let Some(current) = node {
-            self.stack.push(current);
+            self.front_stack.push(current);
             node = current.left.as_deref();
+        }
+    }
+
+    fn push_right(&mut self, mut node: Option<&'a AVLNode<T>>) {
+        while let Some(current) = node {
+            self.back_stack.push(current);
+            node = current.right.as_deref();
         }
     }
 }
@@ -29,11 +44,40 @@ impl<'a, T> Iterator for Iter<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let node = self.stack.pop()?;
+        if self.remaining == 0 {
+            return None;
+        }
+        let node = self
+            .front_stack
+            .pop()
+            .expect("non-empty iterator must have a front node");
+        self.remaining -= 1;
         self.push_left(node.right.as_deref());
         Some(&node.value)
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.remaining, Some(self.remaining))
+    }
 }
+
+impl<'a, T> DoubleEndedIterator for Iter<'a, T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.remaining == 0 {
+            return None;
+        }
+        let node = self
+            .back_stack
+            .pop()
+            .expect("non-empty iterator must have a back node");
+        self.remaining -= 1;
+        self.push_right(node.left.as_deref());
+        Some(&node.value)
+    }
+}
+
+impl<T> ExactSizeIterator for Iter<'_, T> {}
+impl<T> FusedIterator for Iter<'_, T> {}
 
 /// An ascending iterator starting at an inclusive lower-bound key.
 pub struct IterFrom<'a, T> {
@@ -85,6 +129,64 @@ impl<'a, T> Iterator for IterFrom<'a, T> {
         let node = self.stack.pop()?;
         self.remaining -= 1;
         self.push_left(node.right.as_deref());
+        Some(&node.value)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (0, Some(self.remaining))
+    }
+}
+
+/// A descending iterator starting at an inclusive upper-bound key.
+pub struct IterTo<'a, T> {
+    stack: Vec<&'a AVLNode<T>>,
+    remaining: usize,
+}
+
+impl<'a, T> IterTo<'a, T> {
+    pub(crate) fn new<Q>(root: Option<&'a AVLNode<T>>, end: &Q, count: usize) -> Self
+    where
+        T: Borrow<Q>,
+        Q: Ord + ?Sized,
+    {
+        let mut iter = Self {
+            stack: Vec::new(),
+            remaining: count,
+        };
+        if count == 0 {
+            return iter;
+        }
+
+        let mut node = root;
+        while let Some(current) = node {
+            if current.value.borrow() > end {
+                node = current.left.as_deref();
+            } else {
+                iter.stack.push(current);
+                node = current.right.as_deref();
+            }
+        }
+        iter
+    }
+
+    fn push_right(&mut self, mut node: Option<&'a AVLNode<T>>) {
+        while let Some(current) = node {
+            self.stack.push(current);
+            node = current.right.as_deref();
+        }
+    }
+}
+
+impl<'a, T> Iterator for IterTo<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.remaining == 0 {
+            return None;
+        }
+        let node = self.stack.pop()?;
+        self.remaining -= 1;
+        self.push_right(node.left.as_deref());
         Some(&node.value)
     }
 

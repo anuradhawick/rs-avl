@@ -136,6 +136,34 @@ fn iter_from_seeks_to_an_inclusive_lower_bound_and_limits_results() {
 }
 
 #[test]
+fn iter_to_seeks_to_an_inclusive_upper_bound_and_limits_results() {
+    let numbers: AVLTree<_> = [10, 20, 30, 40, 50].into_iter().collect();
+
+    assert_eq!(
+        numbers.iter_to(&40, 3).copied().collect::<Vec<_>>(),
+        [40, 30, 20]
+    );
+    assert_eq!(
+        numbers.iter_to(&35, 3).copied().collect::<Vec<_>>(),
+        [30, 20, 10]
+    );
+    assert_eq!(numbers.iter_to(&10, 10).copied().collect::<Vec<_>>(), [10]);
+    assert!(numbers.iter_to(&5, 3).next().is_none());
+    assert!(numbers.iter_to(&50, 0).next().is_none());
+
+    let words: AVLTree<_> = ["apple".to_owned(), "pear".to_owned()]
+        .into_iter()
+        .collect();
+    assert_eq!(
+        words
+            .iter_to("orange", 1)
+            .map(String::as_str)
+            .collect::<Vec<_>>(),
+        ["apple"]
+    );
+}
+
+#[test]
 fn traversal_iterators_have_their_documented_order() {
     let tree: AVLTree<_> = [4, 2, 6, 1, 3, 5, 7].into_iter().collect();
 
@@ -143,6 +171,18 @@ fn traversal_iterators_have_their_documented_order() {
         tree.in_order().copied().collect::<Vec<_>>(),
         [1, 2, 3, 4, 5, 6, 7]
     );
+    assert_eq!(
+        tree.iter().rev().copied().collect::<Vec<_>>(),
+        [7, 6, 5, 4, 3, 2, 1]
+    );
+
+    let mut double_ended = tree.iter();
+    assert_eq!(double_ended.next(), Some(&1));
+    assert_eq!(double_ended.next_back(), Some(&7));
+    assert_eq!(double_ended.len(), 5);
+    assert_eq!(double_ended.next(), Some(&2));
+    assert_eq!(double_ended.next_back(), Some(&6));
+    assert_eq!(double_ended.copied().collect::<Vec<_>>(), [3, 4, 5]);
     assert_eq!(
         tree.pre_order().copied().collect::<Vec<_>>(),
         [4, 2, 1, 3, 6, 5, 7]

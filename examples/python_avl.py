@@ -15,6 +15,7 @@ tasks = AVLTree(
 )
 
 print("two from priority 2:", list(tasks.iter_from(2, 2)))
+print("two to priority 2:", list(tasks.iter_to(2, 2)))
 
 print("priority order:", list(tasks))
 print("priority 2:", tasks.search_key(2))

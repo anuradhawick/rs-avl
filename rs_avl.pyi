@@ -61,6 +61,10 @@ class AVLTree:
         """
         Return whether an already-extracted key exists.
         """
+    def descending(self, /) -> _AVLTreeIterator:
+        """
+        Return a snapshot iterator in descending key order.
+        """
     def first(self, /) -> Any |None:
         """
         Return the value with the smallest key, or `None` when empty.
@@ -95,6 +99,12 @@ class AVLTree:
         Return at most `count` values from an inclusive lower-bound key.
         `start` is an already-extracted key. If it is absent from the tree,
         iteration begins at the first greater key.
+        """
+    def iter_to(self, /, end: Any, count: int) -> _AVLTreeIterator:
+        """
+        Return at most `count` values from an inclusive upper-bound key.
+        Values are returned in descending order. `end` is an already-
+        extracted key; if absent, iteration begins at the first smaller key.
         """
     def last(self, /) -> Any |None:
         """

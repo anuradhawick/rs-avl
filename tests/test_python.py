@@ -24,15 +24,24 @@ def test_python_tree_api() -> None:
     assert list(tree.iter_from(3.5, 10)) == [4, 5, 6, 7]
     assert list(tree.iter_from(8, 3)) == []
     assert list(tree.iter_from("not compared", 0)) == []
+    assert list(tree.iter_to(5, 3)) == [5, 4, 3]
+    assert list(tree.iter_to(4.5, 10)) == [4, 3, 2, 1]
+    assert list(tree.iter_to(0, 3)) == []
+    assert list(tree.iter_to("not compared", 0)) == []
+    assert list(tree.descending()) == [7, 6, 5, 4, 3, 2, 1]
     assert list(tree.pre_order()) == [4, 2, 1, 3, 6, 5, 7]
     assert list(tree.post_order()) == [1, 3, 2, 5, 7, 6, 4]
     assert list(tree.level_order()) == [4, 2, 6, 1, 3, 5, 7]
 
     iterator = iter(tree)
     cursor = tree.iter_from(3, 3)
+    reverse_cursor = tree.iter_to(5, 3)
+    descending = tree.descending()
     tree.clear()
     assert list(iterator) == [1, 2, 3, 4, 5, 6, 7]
     assert list(cursor) == [3, 4, 5]
+    assert list(reverse_cursor) == [5, 4, 3]
+    assert list(descending) == [7, 6, 5, 4, 3, 2, 1]
     assert not tree
 
 
@@ -70,6 +79,7 @@ def test_attribute_key_supports_arbitrary_objects() -> None:
     assert tree.contains_key(1)
     assert list(tree.range(1, 3)) == [urgent, normal]
     assert list(tree.iter_from(2, 2)) == [normal, low]
+    assert list(tree.iter_to(2, 2)) == [normal, urgent]
     assert tree.remove_key(2)
     assert list(tree) == [urgent, low]
 
@@ -119,6 +129,10 @@ def test_comparison_and_key_errors_leave_existing_tree_unchanged() -> None:
 
     with pytest.raises(TypeError):
         tree.iter_from("incomparable", 1)
+    assert list(tree) == [1, 2, 3]
+
+    with pytest.raises(TypeError):
+        tree.iter_to("incomparable", 1)
     assert list(tree) == [1, 2, 3]
 
     with pytest.raises(TypeError, match="key must be"):
