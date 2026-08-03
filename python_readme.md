@@ -25,6 +25,7 @@ tree.insert(7)
 assert list(tree) == [1, 2, 3, 4, 5, 6, 7]
 assert tree.search(3) == 3
 assert list(tree.range(2, 6)) == [2, 3, 4, 5]
+assert list(tree.iter_from(3, 3)) == [3, 4, 5]
 ```
 
 ## Objects ordered by an attribute

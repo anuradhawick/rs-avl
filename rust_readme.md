@@ -41,6 +41,7 @@ assert!(tree.insert(8));
 assert!(!tree.insert(8));
 assert_eq!(tree.search(&3), Some(&3));
 assert_eq!(tree.range(2..=5).copied().collect::<Vec<_>>(), [2, 3, 4, 5]);
+assert_eq!(tree.iter_from(&5, 3).copied().collect::<Vec<_>>(), [5, 6, 7]);
 assert_eq!(tree.iter().copied().collect::<Vec<_>>(), [1, 2, 3, 4, 5, 6, 7, 8]);
 assert!(tree.remove(&4));
 ```

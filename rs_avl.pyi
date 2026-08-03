@@ -90,6 +90,12 @@ class AVLTree:
         """
         Return whether the tree contains no values.
         """
+    def iter_from(self, /, start: Any, count: int) -> _AVLTreeIterator:
+        """
+        Return at most `count` values from an inclusive lower-bound key.
+        `start` is an already-extracted key. If it is absent from the tree,
+        iteration begins at the first greater key.
+        """
     def last(self, /) -> Any |None:
         """
         Return the value with the largest key, or `None` when empty.

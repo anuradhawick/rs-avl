@@ -35,6 +35,64 @@ impl<'a, T> Iterator for Iter<'a, T> {
     }
 }
 
+/// An ascending iterator starting at an inclusive lower-bound key.
+pub struct IterFrom<'a, T> {
+    stack: Vec<&'a AVLNode<T>>,
+    remaining: usize,
+}
+
+impl<'a, T> IterFrom<'a, T> {
+    pub(crate) fn new<Q>(root: Option<&'a AVLNode<T>>, start: &Q, count: usize) -> Self
+    where
+        T: Borrow<Q>,
+        Q: Ord + ?Sized,
+    {
+        let mut iter = Self {
+            stack: Vec::new(),
+            remaining: count,
+        };
+        if count == 0 {
+            return iter;
+        }
+
+        let mut node = root;
+        while let Some(current) = node {
+            if current.value.borrow() < start {
+                node = current.right.as_deref();
+            } else {
+                iter.stack.push(current);
+                node = current.left.as_deref();
+            }
+        }
+        iter
+    }
+
+    fn push_left(&mut self, mut node: Option<&'a AVLNode<T>>) {
+        while let Some(current) = node {
+            self.stack.push(current);
+            node = current.left.as_deref();
+        }
+    }
+}
+
+impl<'a, T> Iterator for IterFrom<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.remaining == 0 {
+            return None;
+        }
+        let node = self.stack.pop()?;
+        self.remaining -= 1;
+        self.push_left(node.right.as_deref());
+        Some(&node.value)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (0, Some(self.remaining))
+    }
+}
+
 /// A root-left-right traversal iterator.
 pub struct PreOrder<'a, T> {
     stack: Vec<&'a AVLNode<T>>,

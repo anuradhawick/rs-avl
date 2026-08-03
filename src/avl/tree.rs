@@ -4,7 +4,7 @@ use std::fmt;
 use std::iter::FromIterator;
 use std::ops::RangeBounds;
 
-use super::iter::{Iter, LevelOrder, PostOrder, PreOrder, Range};
+use super::iter::{Iter, IterFrom, LevelOrder, PostOrder, PreOrder, Range};
 use super::node::{AVLNode, Link, height, rebalance};
 
 /// A height-balanced binary search tree storing unique values.
@@ -175,6 +175,20 @@ impl<T: Ord> AVLTree<T> {
         R: RangeBounds<Q>,
     {
         Range::new(self.root.as_deref(), bounds)
+    }
+
+    /// Iterates over at most `count` values from the inclusive lower bound.
+    ///
+    /// If `start` is absent, iteration begins at the first greater value. This
+    /// makes the method suitable for resuming cursor-based reads after a value
+    /// has been removed. Finding the start costs `O(log n)` and yielding the
+    /// values costs `O(count)`.
+    pub fn iter_from<Q>(&self, start: &Q, count: usize) -> IterFrom<'_, T>
+    where
+        T: Borrow<Q>,
+        Q: Ord + ?Sized,
+    {
+        IterFrom::new(self.root.as_deref(), start, count)
     }
 }
 

@@ -5,6 +5,10 @@ fn main() {
 
     println!("ascending: {:?}", tree.iter().collect::<Vec<_>>());
     println!(
+        "three from 20: {:?}",
+        tree.iter_from(&20, 3).collect::<Vec<_>>()
+    );
+    println!(
         "range 15..=40: {:?}",
         tree.range(15..=40).collect::<Vec<_>>()
     );

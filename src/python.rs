@@ -227,6 +227,20 @@ mod rs_avl {
             )?))
         }
 
+        /// Return at most `count` values from an inclusive lower-bound key.
+        /// `start` is an already-extracted key. If it is absent from the tree,
+        /// iteration begins at the first greater key.
+        fn iter_from(
+            &self,
+            py: Python<'_>,
+            start: Py<PyAny>,
+            count: usize,
+        ) -> PyResult<PyAVLTreeIterator> {
+            Ok(PyAVLTreeIterator::new(
+                self.inner.iter_from(py, &start, count)?,
+            ))
+        }
+
         /// Return a snapshot iterator in ascending key order.
         fn in_order(&self, py: Python<'_>) -> PyAVLTreeIterator {
             PyAVLTreeIterator::new(self.inner.in_order(py))

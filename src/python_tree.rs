@@ -189,6 +189,47 @@ impl PythonAvlTree {
         )?;
         Ok(values)
     }
+
+    /// Collect at most `count` values from an inclusive lower-bound key.
+    ///
+    /// If `start` is absent, collection begins at the first greater key. The
+    /// initial seek is logarithmic and only the returned successors are walked.
+    pub(crate) fn iter_from(
+        &self,
+        py: Python<'_>,
+        start: &Py<PyAny>,
+        count: usize,
+    ) -> PyResult<Vec<Py<PyAny>>> {
+        let mut values = Vec::with_capacity(count.min(self.len));
+        if count == 0 {
+            return Ok(values);
+        }
+
+        let mut stack = Vec::new();
+        let mut node = self.root.as_deref();
+        while let Some(current) = node {
+            if compare(py, &current.entry.key, start)? == Ordering::Less {
+                node = current.right.as_deref();
+            } else {
+                stack.push(current);
+                node = current.left.as_deref();
+            }
+        }
+
+        while values.len() < count {
+            let Some(current) = stack.pop() else {
+                break;
+            };
+            values.push(current.entry.value.clone_ref(py));
+
+            let mut successor = current.right.as_deref();
+            while let Some(next) = successor {
+                stack.push(next);
+                successor = next.left.as_deref();
+            }
+        }
+        Ok(values)
+    }
 }
 
 /// Ask Python for a total ordering between two keys.
