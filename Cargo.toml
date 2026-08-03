@@ -18,7 +18,7 @@ include = [
     "LICENSE-GPL-3.0",
     "LICENSE-APACHE-2.0",
     "src/**",
-    "tests/avl_tree.rs",
+    "tests/test_rust.rs",
     "examples/rust_avl.rs",
 ]
 
