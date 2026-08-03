@@ -1,6 +1,7 @@
 # rs-avl
 
 [![crates.io](https://img.shields.io/crates/v/rs-avl.svg)](https://crates.io/crates/rs-avl)
+[![crates.io downloads](https://img.shields.io/crates/d/rs-avl.svg)](https://crates.io/crates/rs-avl)
 [![docs.rs](https://docs.rs/rs-avl/badge.svg)](https://docs.rs/rs-avl)
 [![Publish crates.io](https://github.com/anuradhawick/rs-avl/actions/workflows/crates.yml/badge.svg)](https://github.com/anuradhawick/rs-avl/actions/workflows/crates.yml)
 

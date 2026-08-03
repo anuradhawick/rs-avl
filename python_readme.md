@@ -1,6 +1,7 @@
 # rs-avl for Python
 
 [![PyPI](https://img.shields.io/pypi/v/rs-avl.svg)](https://pypi.org/project/rs-avl/)
+[![PyPI downloads](https://static.pepy.tech/badge/rs-avl)](https://pepy.tech/project/rs-avl)
 [![Python](https://img.shields.io/pypi/pyversions/rs-avl.svg)](https://pypi.org/project/rs-avl/)
 [![Publish PyPI](https://github.com/anuradhawick/rs-avl/actions/workflows/pypi.yml/badge.svg)](https://github.com/anuradhawick/rs-avl/actions/workflows/pypi.yml)
 
