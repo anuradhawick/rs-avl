@@ -1,6 +1,6 @@
 [package]
 name = "rs-avl"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "A generic AVL tree with range queries and traversal iterators"
 documentation = "https://docs.rs/rs-avl"
