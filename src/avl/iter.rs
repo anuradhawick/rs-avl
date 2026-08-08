@@ -289,6 +289,10 @@ pub struct Range<'a, T, Q: ?Sized, R> {
     stack: Vec<&'a AVLNode<T>>,
     bounds: R,
     finished: bool,
+    // `Q` is the borrowed key type used to compare node values with the range
+    // bounds, but no `Q` is stored directly in this iterator. The marker tells
+    // the compiler that `Range` still logically carries a shared `Q` tied to
+    // `'a`; it occupies no space at runtime.
     marker: PhantomData<&'a Q>,
 }
 

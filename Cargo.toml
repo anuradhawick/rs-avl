@@ -28,7 +28,7 @@ name = "rs_avl"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-pyo3 = { version = "0.29.0", features = ["extension-module", "abi3-py310", "experimental-inspect"] }
+pyo3 = { version = "0.29.2", features = ["extension-module", "abi3-py310", "experimental-inspect"] }
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
