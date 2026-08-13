@@ -49,6 +49,14 @@ class AVLTree:
         """
         Return an ascending representation of the stored values.
         """
+    def __getnewargs_ex__(self, /) -> tuple[tuple, dict]:
+        """
+        Return ``(args, kwargs)`` for pickle reconstruction.
+
+        The tree is pickled as an ascending list of its values together with
+        the key extractor so it can be faithfully reconstructed.  A callable
+        key must itself be picklable.
+        """
     def clear(self, /) -> None:
         """
         Remove every value from the tree.

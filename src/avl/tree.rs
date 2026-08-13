@@ -13,6 +13,30 @@ pub struct AVLTree<T> {
     len: usize,
 }
 
+impl<T: Ord> AVLTree<T> {
+    /// Builds a balanced tree from a **sorted, deduplicated** iterator in O(n).
+    ///
+    /// Values must arrive in strictly ascending order. Passing unsorted or
+    /// duplicate values produces a structurally valid tree but the ordering
+    /// invariant is violated, leading to incorrect search results.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rs_avl::AVLTree;
+    ///
+    /// let tree = AVLTree::from_sorted([1, 2, 3, 4, 5]);
+    /// assert_eq!(tree.iter().copied().collect::<Vec<_>>(), [1, 2, 3, 4, 5]);
+    /// ```
+    pub fn from_sorted<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        let values: Vec<T> = iter.into_iter().collect();
+        let len = values.len();
+        let mut it = values.into_iter();
+        let root = build_balanced(&mut it, len);
+        Self { root, len }
+    }
+}
+
 impl<T> AVLTree<T> {
     /// Creates an empty tree.
     pub const fn new() -> Self {
@@ -315,5 +339,93 @@ impl<'a, T> IntoIterator for &'a AVLTree<T> {
 impl<T: fmt::Debug> fmt::Debug for AVLTree<T> {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.debug_set().entries(self.iter()).finish()
+    }
+}
+
+/// Build a balanced BST from the next `n` values of a sorted iterator in O(n).
+///
+/// The recursion mirrors an in-order traversal: the left subtree is built
+/// first (consuming `n/2` items), then the root value is taken, then the
+/// right subtree. Heights are computed bottom-up so no rebalancing passes
+/// are needed.
+pub(crate) fn build_balanced<T>(iter: &mut impl Iterator<Item = T>, n: usize) -> Link<T> {
+    if n == 0 {
+        return None;
+    }
+    let left_size = n / 2;
+    let right_size = n - left_size - 1;
+
+    let left = build_balanced(iter, left_size);
+    let value = iter.next().expect("iterator must supply exactly n values");
+    let right = build_balanced(iter, right_size);
+
+    let left_height = left.as_deref().map_or(0, |node| node.height);
+    let right_height = right.as_deref().map_or(0, |node| node.height);
+
+    Some(Box::new(AVLNode {
+        value,
+        left,
+        right,
+        height: 1 + left_height.max(right_height),
+    }))
+}
+
+#[cfg(feature = "serde")]
+mod serde_impl {
+    use std::fmt;
+    use std::marker::PhantomData;
+
+    use serde::de::{SeqAccess, Visitor};
+    use serde::ser::SerializeSeq;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    use super::{AVLTree, build_balanced};
+
+    impl<T: Serialize> Serialize for AVLTree<T> {
+        /// Serializes the tree as an ascending sequence of its values.
+        fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+            let mut seq = serializer.serialize_seq(Some(self.len))?;
+            for item in self.iter() {
+                seq.serialize_element(item)?;
+            }
+            seq.end()
+        }
+    }
+
+    impl<'de, T: Deserialize<'de> + Ord> Deserialize<'de> for AVLTree<T> {
+        /// Deserializes from any sequence.
+        ///
+        /// Values are sorted and deduplicated before the tree is built, so
+        /// the input sequence need not be ordered.
+        fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+            struct TreeVisitor<T>(PhantomData<T>);
+
+            impl<'de, T: Deserialize<'de> + Ord> Visitor<'de> for TreeVisitor<T> {
+                type Value = AVLTree<T>;
+
+                fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                    f.write_str("a sequence of values")
+                }
+
+                fn visit_seq<A: SeqAccess<'de>>(
+                    self,
+                    mut seq: A,
+                ) -> Result<Self::Value, A::Error> {
+                    let mut values: Vec<T> =
+                        Vec::with_capacity(seq.size_hint().unwrap_or(0));
+                    while let Some(value) = seq.next_element()? {
+                        values.push(value);
+                    }
+                    values.sort();
+                    values.dedup();
+                    let len = values.len();
+                    let mut it = values.into_iter();
+                    let root = build_balanced(&mut it, len);
+                    Ok(AVLTree { root, len })
+                }
+            }
+
+            deserializer.deserialize_seq(TreeVisitor(PhantomData))
+        }
     }
 }

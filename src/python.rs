@@ -308,6 +308,34 @@ mod rs_avl {
                 .collect::<PyResult<Vec<_>>>()?;
             Ok(format!("AVLTree([{}])", representations.join(", ")))
         }
+
+        /// Return `(args, kwargs)` for pickle reconstruction.
+        ///
+        /// The tree is pickled as an ascending list of its values together
+        /// with the key extractor so it can be faithfully reconstructed. A
+        /// callable key must itself be picklable; if it is not, Python's
+        /// pickle machinery will raise when the callable is serialized.
+        fn __getnewargs_ex__(
+            &self,
+            py: Python<'_>,
+        ) -> PyResult<(Py<pyo3::types::PyTuple>, Py<pyo3::types::PyDict>)> {
+            use pyo3::types::{PyDict, PyList, PyTuple};
+
+            let values = self.inner.in_order(py);
+            let list = PyList::new(py, values)?;
+            let args = PyTuple::new(py, [list.as_any()])?;
+            let kwargs = PyDict::new(py);
+            match &self.key {
+                KeyExtractor::Attribute(name) => {
+                    kwargs.set_item("key", name.as_str())?;
+                }
+                KeyExtractor::Callable(callable) => {
+                    kwargs.set_item("key", callable.bind(py))?;
+                }
+                KeyExtractor::Identity => {}
+            }
+            Ok((args.unbind(), kwargs.unbind()))
+        }
     }
 
     /// An iterator over a snapshot of tree values.
