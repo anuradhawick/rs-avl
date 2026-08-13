@@ -60,6 +60,33 @@ Equal keys are treated as duplicates. Extracted keys should remain comparable
 for as long as their values are stored. Type information is included through a
 generated `.pyi` file and `py.typed` marker.
 
+## Serialization and pickling
+
+`AVLTree` supports Python's `pickle` protocol out of the box, including the
+key extractor (attribute name or callable). A callable key must itself be
+picklable:
+
+```python
+import pickle
+from rs_avl import AVLTree
+
+tree = AVLTree([3, 1, 2])
+restored = pickle.loads(pickle.dumps(tree))
+assert list(restored) == [1, 2, 3]
+
+# With an attribute key
+from dataclasses import dataclass
+
+@dataclass
+class Task:
+    name: str
+    priority: int
+
+tasks = AVLTree([Task("release", 1), Task("document", 2)], key="priority")
+restored_tasks = pickle.loads(pickle.dumps(tasks))
+assert restored_tasks.first().name == "release"
+```
+
 ## License
 
 Dual-licensed under your choice of GPL-3.0-only or Apache-2.0.

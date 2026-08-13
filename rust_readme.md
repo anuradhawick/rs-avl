@@ -106,6 +106,46 @@ which is useful for visualization and teaching. `root()` provides read-only
 node inspection without allowing callers to break ordering or height
 invariants.
 
+## Building from a sorted sequence
+
+`AVLTree::from_sorted` constructs a balanced tree from a **sorted,
+deduplicated** iterator in `O(n)` — heights are computed bottom-up during
+construction and no rotation passes are needed:
+
+```rust
+use rs_avl::AVLTree;
+
+let tree = AVLTree::from_sorted([1, 2, 3, 4, 5, 6, 7]);
+assert_eq!(tree.iter().copied().collect::<Vec<_>>(), [1, 2, 3, 4, 5, 6, 7]);
+```
+
+> **Note:** passing unsorted or duplicate values violates the ordering
+> invariant and leads to incorrect search results.
+
+## Serialization with `serde`
+
+Enable the optional `serde` feature to serialize and deserialize any
+`AVLTree<T>` where `T: Serialize + Deserialize + Ord`:
+
+```toml
+[dependencies]
+rs-avl = { version = "0.1", features = ["serde"] }
+```
+
+`AVLTree<T>` serializes as an ascending JSON array (or the equivalent in any
+`serde`-compatible format). Deserialization accepts an unordered sequence,
+sorts and deduplicates it, and reconstructs a balanced tree in `O(n)`:
+
+```rust
+use rs_avl::AVLTree;
+
+let tree: AVLTree<i32> = [5, 3, 1, 4, 2].into_iter().collect();
+let json = serde_json::to_string(&tree)?;  // "[1,2,3,4,5]"
+let restored: AVLTree<i32> = serde_json::from_str(&json)?;
+assert_eq!(tree.iter().copied().collect::<Vec<_>>(),
+           restored.iter().copied().collect::<Vec<_>>());
+```
+
 Full API documentation is available on [docs.rs](https://docs.rs/rs-avl).
 
 ## License

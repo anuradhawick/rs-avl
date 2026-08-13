@@ -139,3 +139,43 @@ def test_comparison_and_key_errors_leave_existing_tree_unchanged() -> None:
         rs_avl.AVLTree(key=42)
     with pytest.raises(AttributeError):
         rs_avl.AVLTree([Task("missing", 1)], key="unknown")
+
+
+def test_pickle_round_trip_identity_key() -> None:
+    import pickle
+
+    tree = rs_avl.AVLTree([3, 1, 4, 1, 5, 9, 2, 6])
+    restored = pickle.loads(pickle.dumps(tree))
+
+    assert list(restored) == list(tree)
+    assert len(restored) == len(tree)
+
+
+def test_pickle_round_trip_attribute_key() -> None:
+    import pickle
+
+    low = Task("documentation", 3)
+    urgent = Task("release", 1)
+    normal = Task("testing", 2)
+    tree = rs_avl.AVLTree([low, urgent, normal], key="priority")
+    restored = pickle.loads(pickle.dumps(tree))
+
+    assert [t.name for t in restored] == [t.name for t in tree]
+    assert restored.first().name == "release"
+
+
+def priority_key(task: Task) -> int:
+    return task.priority
+
+
+def test_pickle_round_trip_callable_key() -> None:
+    import pickle
+
+    low = Task("documentation", 3)
+    urgent = Task("release", 1)
+    normal = Task("testing", 2)
+    # Use a module-level function so it is picklable
+    tree = rs_avl.AVLTree([low, urgent, normal], key=priority_key)
+    restored = pickle.loads(pickle.dumps(tree))
+
+    assert [t.name for t in restored] == [t.name for t in tree]
