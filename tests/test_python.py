@@ -179,3 +179,43 @@ def test_pickle_round_trip_callable_key() -> None:
     restored = pickle.loads(pickle.dumps(tree))
 
     assert [t.name for t in restored] == [t.name for t in tree]
+
+
+def test_pickle_round_trip_empty_tree() -> None:
+    import pickle
+
+    tree: rs_avl.AVLTree = rs_avl.AVLTree()
+    restored = pickle.loads(pickle.dumps(tree))
+
+    assert list(restored) == []
+    assert len(restored) == 0
+    assert restored.is_empty()
+
+
+def test_pickle_fast_path_bypasses_avl_insertion() -> None:
+    """Unpickling must not call insert() or perform AVL comparisons.
+
+    We verify this by patching AVLTree.insert: if the fast path is taken,
+    insert is never invoked during reconstruction.
+    """
+    import pickle
+
+    tree = rs_avl.AVLTree([1, 2, 3, 4, 5])
+
+    insert_call_count = 0
+    original_insert = rs_avl.AVLTree.insert
+
+    def counting_insert(self: rs_avl.AVLTree, value: object) -> bool:
+        nonlocal insert_call_count
+        insert_call_count += 1
+        return original_insert(self, value)
+
+    rs_avl.AVLTree.insert = counting_insert  # type: ignore[method-assign]
+    try:
+        restored = pickle.loads(pickle.dumps(tree))
+    finally:
+        rs_avl.AVLTree.insert = original_insert  # type: ignore[method-assign]
+
+    # Reconstruction must use the fast builder, not insert().
+    assert insert_call_count == 0
+    assert list(restored) == [1, 2, 3, 4, 5]

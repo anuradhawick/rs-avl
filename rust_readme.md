@@ -132,18 +132,33 @@ Enable the optional `serde` feature to serialize and deserialize any
 rs-avl = { version = "0.1", features = ["serde"] }
 ```
 
-`AVLTree<T>` serializes as an ascending JSON array (or the equivalent in any
-`serde`-compatible format). Deserialization accepts an unordered sequence,
-sorts and deduplicates it, and reconstructs a balanced tree in `O(n)`:
+Serialization and deserialization are both **O(n)**. Node topology and cached
+heights are not part of the serialized form — only the ordered values are
+stored.
+
+`AVLTree<T>` serializes as an ascending sequence (JSON array or the equivalent
+in any `serde`-compatible format):
 
 ```rust
 use rs_avl::AVLTree;
 
 let tree: AVLTree<i32> = [5, 3, 1, 4, 2].into_iter().collect();
 let json = serde_json::to_string(&tree)?;  // "[1,2,3,4,5]"
+```
+
+Deserialization requires the sequence to be **strictly ascending with no
+duplicates** — this is the canonical form produced by serialization. An
+unordered or duplicate input is rejected with a clear deserialization error:
+
+```rust
+// Round-trip: serialize then deserialize.
 let restored: AVLTree<i32> = serde_json::from_str(&json)?;
 assert_eq!(tree.iter().copied().collect::<Vec<_>>(),
            restored.iter().copied().collect::<Vec<_>>());
+
+// Unordered or duplicate input is rejected.
+let bad = serde_json::from_str::<AVLTree<i32>>("[3, 1, 2]");
+assert!(bad.is_err());
 ```
 
 Full API documentation is available on [docs.rs](https://docs.rs/rs-avl).

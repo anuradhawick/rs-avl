@@ -3,7 +3,7 @@
 use pyo3::exceptions::{PyStopIteration, PyTypeError};
 use pyo3::inspect::PyStaticExpr;
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyString};
+use pyo3::types::{PyAny, PyList, PyString, PyTuple};
 use pyo3::{Borrowed, FromPyObject, type_hint_identifier, type_hint_subscript, type_hint_union};
 
 use crate::python_tree::{Entry, PythonAvlTree};
@@ -309,32 +309,44 @@ mod rs_avl {
             Ok(format!("AVLTree([{}])", representations.join(", ")))
         }
 
-        /// Return `(args, kwargs)` for pickle reconstruction.
+        /// Return `(callable, args)` for pickle reconstruction.
         ///
-        /// The tree is pickled as an ascending list of its values together
-        /// with the key extractor so it can be faithfully reconstructed. A
-        /// callable key must itself be picklable; if it is not, Python's
-        /// pickle machinery will raise when the callable is serialized.
-        fn __getnewargs_ex__(
-            &self,
-            py: Python<'_>,
-        ) -> PyResult<(Py<pyo3::types::PyTuple>, Py<pyo3::types::PyDict>)> {
-            use pyo3::types::{PyDict, PyList, PyTuple};
+        /// The tree is reduced to a sorted list of `(value, key)` pairs plus
+        /// the key extractor. Reconstruction uses the fast O(n) sorted builder
+        /// so unpickling does not perform AVL insertion or Python comparisons.
+        fn __reduce__(&self, py: Python<'_>) -> PyResult<Py<PyTuple>> {
+            // Collect sorted (value, key) pairs — keys are pre-computed and
+            // stored on each node, so no key extractor call is needed here.
+            let pairs_data = self.inner.in_order_entries(py);
+            let pairs: Vec<Py<PyAny>> = pairs_data
+                .into_iter()
+                .map(|(value, key)| {
+                    PyTuple::new(py, [value.into_bound(py), key.into_bound(py)])
+                        .map(|t| t.into_any().unbind())
+                })
+                .collect::<PyResult<_>>()?;
+            let pairs_list = PyList::new(py, pairs)?.unbind();
 
-            let values = self.inner.in_order(py);
-            let list = PyList::new(py, values)?;
-            let args = PyTuple::new(py, [list.as_any()])?;
-            let kwargs = PyDict::new(py);
-            match &self.key {
+            // Encode the key extractor as None | str | callable so it can be
+            // stored alongside the values and restored without ambiguity.
+            let key_spec: Py<PyAny> = match &self.key {
+                KeyExtractor::Identity => py.None(),
                 KeyExtractor::Attribute(name) => {
-                    kwargs.set_item("key", name.as_str())?;
+                    PyString::new(py, name).unbind().into_any()
                 }
-                KeyExtractor::Callable(callable) => {
-                    kwargs.set_item("key", callable.bind(py))?;
-                }
-                KeyExtractor::Identity => {}
-            }
-            Ok((args.unbind(), kwargs.unbind()))
+                KeyExtractor::Callable(callable) => callable.clone_ref(py),
+            };
+
+            // Retrieve the reconstruction helper from the installed module so
+            // pickle can locate it by qualified name on deserialization.
+            let module = py.import("rs_avl.rs_avl")?;
+            let reconstruct = module.getattr("_avltree_from_sorted_entries")?;
+
+            // Return (reconstruct_fn, (pairs_list, key_spec))
+            let inner_args =
+                PyTuple::new(py, [pairs_list.bind(py).as_any(), key_spec.bind(py)])?;
+            PyTuple::new(py, [reconstruct.as_any(), inner_args.as_any()])
+                .map(|t| t.unbind())
         }
     }
 
@@ -367,5 +379,29 @@ mod rs_avl {
                 .next()
                 .ok_or_else(|| PyStopIteration::new_err(()))
         }
+    }
+
+    /// Private reconstruction helper used by pickle.
+    ///
+    /// Accepts a list of `(value, key)` pairs in **strictly ascending key
+    /// order** and the original key extractor. Nodes are allocated directly
+    /// via the O(n) balanced builder — no AVL insertion or Python comparison
+    /// work is performed during unpickling.
+    ///
+    /// This function is an implementation detail; its name and signature may
+    /// change across versions without notice.
+    #[pyfunction]
+    fn _avltree_from_sorted_entries(
+        _py: Python<'_>,
+        pairs: Vec<(Py<PyAny>, Py<PyAny>)>,
+        key_spec: Option<KeyExtractor>,
+    ) -> PyResult<PyAVLTree> {
+        let key = key_spec.unwrap_or(KeyExtractor::Identity);
+        let entries: Vec<Entry> = pairs
+            .into_iter()
+            .map(|(value, extracted_key)| Entry::new(value, extracted_key))
+            .collect();
+        let inner = PythonAvlTree::from_sorted(entries);
+        Ok(PyAVLTree { inner, key })
     }
 }

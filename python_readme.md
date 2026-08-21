@@ -62,9 +62,11 @@ generated `.pyi` file and `py.typed` marker.
 
 ## Serialization and pickling
 
-`AVLTree` supports Python's `pickle` protocol out of the box, including the
-key extractor (attribute name or callable). A callable key must itself be
-picklable:
+`AVLTree` supports Python's `pickle` protocol out of the box. Unpickling uses
+an O(n) sorted builder that bypasses AVL insertion and Python key comparisons
+entirely — it allocates nodes directly and computes heights bottom-up. The key
+extractor (attribute name or callable) is preserved faithfully; a callable key
+must itself be picklable:
 
 ```python
 import pickle

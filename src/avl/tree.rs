@@ -393,10 +393,13 @@ mod serde_impl {
     }
 
     impl<'de, T: Deserialize<'de> + Ord> Deserialize<'de> for AVLTree<T> {
-        /// Deserializes from any sequence.
+        /// Deserializes from a **strictly ascending** sequence of unique values.
         ///
-        /// Values are sorted and deduplicated before the tree is built, so
-        /// the input sequence need not be ordered.
+        /// The sequence must be sorted in ascending order with no duplicate
+        /// values — this matches the canonical form produced by [`Serialize`].
+        /// An unordered or duplicate sequence is rejected with a deserialization
+        /// error. The tree is constructed in O(n) using [`build_balanced`] so
+        /// no rotations or repeated comparisons occur during loading.
         fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
             struct TreeVisitor<T>(PhantomData<T>);
 
@@ -404,7 +407,9 @@ mod serde_impl {
                 type Value = AVLTree<T>;
 
                 fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                    f.write_str("a sequence of values")
+                    f.write_str(
+                        "a strictly ascending sequence of unique values",
+                    )
                 }
 
                 fn visit_seq<A: SeqAccess<'de>>(
@@ -414,10 +419,20 @@ mod serde_impl {
                     let mut values: Vec<T> =
                         Vec::with_capacity(seq.size_hint().unwrap_or(0));
                     while let Some(value) = seq.next_element()? {
+                        // Validate that each new value is strictly greater than
+                        // the previous one. This is an O(n) scan that keeps
+                        // deserialization linear and catches unordered or
+                        // duplicate input early with a clear error.
+                        if let Some(prev) = values.last() {
+                            if value <= *prev {
+                                return Err(serde::de::Error::custom(
+                                    "AVLTree sequence must be strictly ascending \
+                                     with no duplicate values",
+                                ));
+                            }
+                        }
                         values.push(value);
                     }
-                    values.sort();
-                    values.dedup();
                     let len = values.len();
                     let mut it = values.into_iter();
                     let root = build_balanced(&mut it, len);
