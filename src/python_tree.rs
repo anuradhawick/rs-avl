@@ -492,10 +492,7 @@ fn collect_in_order_entries(
 ) {
     if let Some(node) = node {
         collect_in_order_entries(node.left.as_deref(), py, pairs);
-        pairs.push((
-            node.entry.value.clone_ref(py),
-            node.entry.key.clone_ref(py),
-        ));
+        pairs.push((node.entry.value.clone_ref(py), node.entry.key.clone_ref(py)));
         collect_in_order_entries(node.right.as_deref(), py, pairs);
     }
 }

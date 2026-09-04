@@ -333,30 +333,36 @@ mod serde_tests {
         assert_eq!(tree.iter().copied().collect::<Vec<_>>(), [1, 2, 3, 4, 5]);
         assert_invariants(&tree);
     }
+}
 
-    // ── bincode helpers ───────────────────────────────────────────────────────
+mod rkyv_tests {
+    use super::*;
 
-    fn bincode_round_trip<
-        T: Ord
-            + serde::Serialize
-            + for<'de> serde::Deserialize<'de>
-            + std::fmt::Debug
-            + Clone,
-    >(
-        tree: &AVLTree<T>,
-    ) -> AVLTree<T> {
-        let cfg = bincode::config::standard();
-        let bytes =
-            bincode::serde::encode_to_vec(tree, cfg).expect("bincode encode must succeed");
-        let (restored, _) = bincode::serde::decode_from_slice::<AVLTree<T>, _>(&bytes, cfg)
-            .expect("bincode decode must succeed");
-        restored
+    // rkyv has its own serialization traits rather than acting as a serde data
+    // format. Archive the tree's canonical representation and rebuild it using
+    // the linear-time sorted constructor.
+    fn archive_round_trip_i32(tree: &AVLTree<i32>) -> AVLTree<i32> {
+        let values: Vec<_> = tree.iter().copied().collect();
+        let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&values)
+            .expect("rkyv serialization must succeed");
+        let restored = rkyv::from_bytes::<Vec<i32>, rkyv::rancor::Error>(&bytes)
+            .expect("rkyv deserialization must succeed");
+        AVLTree::from_sorted(restored)
+    }
+
+    fn archive_round_trip_strings(tree: &AVLTree<String>) -> AVLTree<String> {
+        let values: Vec<_> = tree.iter().cloned().collect();
+        let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&values)
+            .expect("rkyv serialization must succeed");
+        let restored = rkyv::from_bytes::<Vec<String>, rkyv::rancor::Error>(&bytes)
+            .expect("rkyv deserialization must succeed");
+        AVLTree::from_sorted(restored)
     }
 
     #[test]
-    fn bincode_round_trip_preserves_contents() {
+    fn rkyv_round_trip_preserves_contents() {
         let tree: AVLTree<i32> = (1..=15).collect();
-        let restored = bincode_round_trip(&tree);
+        let restored = archive_round_trip_i32(&tree);
 
         assert_eq!(tree.len(), restored.len());
         assert_eq!(
@@ -367,17 +373,19 @@ mod serde_tests {
     }
 
     #[test]
-    fn bincode_round_trip_empty_tree() {
+    fn rkyv_round_trip_empty_tree() {
         let tree: AVLTree<i32> = AVLTree::new();
-        let restored = bincode_round_trip(&tree);
+        let restored = archive_round_trip_i32(&tree);
         assert!(restored.is_empty());
     }
 
     #[test]
-    fn bincode_round_trip_strings() {
-        let tree: AVLTree<String> =
-            ["alpha", "beta", "delta", "gamma"].iter().map(|s| s.to_string()).collect();
-        let restored = bincode_round_trip(&tree);
+    fn rkyv_round_trip_strings() {
+        let tree: AVLTree<String> = ["alpha", "beta", "delta", "gamma"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        let restored = archive_round_trip_strings(&tree);
 
         assert_eq!(tree.len(), restored.len());
         assert_eq!(

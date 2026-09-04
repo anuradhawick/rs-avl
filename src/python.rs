@@ -331,9 +331,7 @@ mod rs_avl {
             // stored alongside the values and restored without ambiguity.
             let key_spec: Py<PyAny> = match &self.key {
                 KeyExtractor::Identity => py.None(),
-                KeyExtractor::Attribute(name) => {
-                    PyString::new(py, name).unbind().into_any()
-                }
+                KeyExtractor::Attribute(name) => PyString::new(py, name).unbind().into_any(),
                 KeyExtractor::Callable(callable) => callable.clone_ref(py),
             };
 
@@ -343,10 +341,8 @@ mod rs_avl {
             let reconstruct = module.getattr("_avltree_from_sorted_entries")?;
 
             // Return (reconstruct_fn, (pairs_list, key_spec))
-            let inner_args =
-                PyTuple::new(py, [pairs_list.bind(py).as_any(), key_spec.bind(py)])?;
-            PyTuple::new(py, [reconstruct.as_any(), inner_args.as_any()])
-                .map(|t| t.unbind())
+            let inner_args = PyTuple::new(py, [pairs_list.bind(py).as_any(), key_spec.bind(py)])?;
+            PyTuple::new(py, [reconstruct.as_any(), inner_args.as_any()]).map(|t| t.unbind())
         }
     }
 

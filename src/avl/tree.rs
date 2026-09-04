@@ -407,17 +407,11 @@ mod serde_impl {
                 type Value = AVLTree<T>;
 
                 fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                    f.write_str(
-                        "a strictly ascending sequence of unique values",
-                    )
+                    f.write_str("a strictly ascending sequence of unique values")
                 }
 
-                fn visit_seq<A: SeqAccess<'de>>(
-                    self,
-                    mut seq: A,
-                ) -> Result<Self::Value, A::Error> {
-                    let mut values: Vec<T> =
-                        Vec::with_capacity(seq.size_hint().unwrap_or(0));
+                fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
+                    let mut values: Vec<T> = Vec::with_capacity(seq.size_hint().unwrap_or(0));
                     while let Some(value) = seq.next_element()? {
                         // Validate that each new value is strictly greater than
                         // the previous one. This is an O(n) scan that keeps
