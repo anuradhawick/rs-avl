@@ -4,6 +4,7 @@
 [![crates.io downloads](https://img.shields.io/crates/d/rs-avl.svg)](https://crates.io/crates/rs-avl)
 [![docs.rs](https://docs.rs/rs-avl/badge.svg)](https://docs.rs/rs-avl)
 [![Publish crates.io](https://github.com/anuradhawick/rs-avl/actions/workflows/crates.yml/badge.svg)](https://github.com/anuradhawick/rs-avl/actions/workflows/crates.yml)
+[![License](https://img.shields.io/crates/l/rs-avl.svg)](https://github.com/anuradhawick/rs-avl#license)
 
 A compact, generic ordered set powered by an AVL tree. It keeps itself
 height-balanced after every insertion and removal, giving predictable

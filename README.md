@@ -1,11 +1,14 @@
 # rs-avl
 
 [![crates.io](https://img.shields.io/crates/v/rs-avl.svg)](https://crates.io/crates/rs-avl)
+[![crates.io downloads](https://img.shields.io/crates/d/rs-avl.svg)](https://crates.io/crates/rs-avl)
 [![docs.rs](https://docs.rs/rs-avl/badge.svg)](https://docs.rs/rs-avl)
 [![PyPI](https://img.shields.io/pypi/v/rs-avl.svg)](https://pypi.org/project/rs-avl/)
+[![PyPI downloads](https://static.pepy.tech/badge/rs-avl)](https://pepy.tech/project/rs-avl)
 [![Python](https://img.shields.io/pypi/pyversions/rs-avl.svg)](https://pypi.org/project/rs-avl/)
 [![Publish crates.io](https://github.com/anuradhawick/rs-avl/actions/workflows/crates.yml/badge.svg)](https://github.com/anuradhawick/rs-avl/actions/workflows/crates.yml)
 [![Publish PyPI](https://github.com/anuradhawick/rs-avl/actions/workflows/pypi.yml/badge.svg)](https://github.com/anuradhawick/rs-avl/actions/workflows/pypi.yml)
+[![License](https://img.shields.io/crates/l/rs-avl.svg)](https://github.com/anuradhawick/rs-avl#license)
 
 `rs-avl` is a height-balanced ordered set for Rust and Python. The Rust crate
 provides a generic `AVLTree<T: Ord>`; the Python extension stores arbitrary
