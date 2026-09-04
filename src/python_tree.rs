@@ -59,6 +59,18 @@ pub(crate) struct PythonAvlTree {
 }
 
 impl PythonAvlTree {
+    /// Build a balanced tree directly from a **sorted** vector of entries in O(n).
+    ///
+    /// The entries must be in strictly ascending key order. No comparisons,
+    /// rotations, or Python comparisons are performed — nodes are allocated
+    /// directly and heights are computed bottom-up.
+    pub(crate) fn from_sorted(entries: Vec<Entry>) -> Self {
+        let len = entries.len();
+        let mut it = entries.into_iter();
+        let root = build_balanced_py(&mut it, len);
+        Self { root, len }
+    }
+
     /// Insert an entry and report whether its key was new.
     pub(crate) fn insert(&mut self, py: Python<'_>, entry: Entry) -> PyResult<bool> {
         let inserted = insert_at(py, &mut self.root, entry)?;
@@ -124,6 +136,16 @@ impl PythonAvlTree {
         let mut values = Vec::with_capacity(self.len);
         collect_in_order(self.root.as_deref(), py, &mut values);
         values
+    }
+
+    /// Return (value, key) pairs in ascending key order for serialization.
+    ///
+    /// The pairs are collected in the same order they were inserted relative
+    /// to their keys, so they can be fed directly to [`from_sorted`].
+    pub(crate) fn in_order_entries(&self, py: Python<'_>) -> Vec<(Py<PyAny>, Py<PyAny>)> {
+        let mut pairs = Vec::with_capacity(self.len);
+        collect_in_order_entries(self.root.as_deref(), py, &mut pairs);
+        pairs
     }
 
     /// Return values in descending key order.
@@ -429,11 +451,52 @@ fn rotate_left(mut root: Box<Node>) -> Box<Node> {
     child
 }
 
+/// Build a balanced BST from the next `n` entries of a sorted iterator in O(n).
+///
+/// Mirrors the in-order traversal shape: left subtree, then root, then right
+/// subtree. Heights are computed bottom-up — no comparisons or rotations occur.
+fn build_balanced_py(iter: &mut impl Iterator<Item = Entry>, n: usize) -> Link {
+    if n == 0 {
+        return None;
+    }
+    let left_size = n / 2;
+    let right_size = n - left_size - 1;
+
+    let left = build_balanced_py(iter, left_size);
+    let entry = iter.next().expect("iterator must supply exactly n entries");
+    let right = build_balanced_py(iter, right_size);
+
+    let left_height = left.as_deref().map_or(0, |node| node.height);
+    let right_height = right.as_deref().map_or(0, |node| node.height);
+
+    Some(Box::new(Node {
+        entry,
+        left,
+        right,
+        height: 1 + left_height.max(right_height),
+    }))
+}
+
 fn collect_in_order(node: Option<&Node>, py: Python<'_>, values: &mut Vec<Py<PyAny>>) {
     if let Some(node) = node {
         collect_in_order(node.left.as_deref(), py, values);
         values.push(node.entry.value.clone_ref(py));
         collect_in_order(node.right.as_deref(), py, values);
+    }
+}
+
+fn collect_in_order_entries(
+    node: Option<&Node>,
+    py: Python<'_>,
+    pairs: &mut Vec<(Py<PyAny>, Py<PyAny>)>,
+) {
+    if let Some(node) = node {
+        collect_in_order_entries(node.left.as_deref(), py, pairs);
+        pairs.push((
+            node.entry.value.clone_ref(py),
+            node.entry.key.clone_ref(py),
+        ));
+        collect_in_order_entries(node.right.as_deref(), py, pairs);
     }
 }
 

@@ -232,6 +232,163 @@ fn clear_restores_the_empty_state() {
 }
 
 #[test]
+fn from_sorted_builds_a_balanced_tree() {
+    let values = [1, 3, 5, 7, 9, 11, 13];
+    let tree = AVLTree::from_sorted(values);
+
+    assert_eq!(tree.len(), values.len());
+    assert_eq!(
+        tree.iter().copied().collect::<Vec<_>>(),
+        values.to_vec(),
+        "in-order traversal must reproduce the original sequence"
+    );
+    assert_invariants(&tree);
+}
+
+#[test]
+fn from_sorted_empty_produces_empty_tree() {
+    let tree: AVLTree<i32> = AVLTree::from_sorted([]);
+
+    assert!(tree.is_empty());
+    assert_eq!(tree.len(), 0);
+    assert_eq!(tree.height(), 0);
+}
+
+#[test]
+fn from_sorted_single_element() {
+    let tree = AVLTree::from_sorted([42]);
+
+    assert_eq!(tree.len(), 1);
+    assert_eq!(tree.first(), Some(&42));
+    assert_invariants(&tree);
+}
+
+#[cfg(feature = "serde")]
+mod serde_tests {
+    use super::*;
+
+    // ── JSON helpers ──────────────────────────────────────────────────────────
+
+    fn json_round_trip<
+        T: Ord + serde::Serialize + for<'de> serde::Deserialize<'de> + std::fmt::Debug,
+    >(
+        tree: &AVLTree<T>,
+    ) -> AVLTree<T> {
+        let json = serde_json::to_string(tree).expect("serialization must succeed");
+        serde_json::from_str(&json).expect("deserialization must succeed")
+    }
+
+    #[test]
+    fn serialize_produces_ascending_sequence() {
+        let tree: AVLTree<i32> = [5, 3, 1, 4, 2].into_iter().collect();
+        let json = serde_json::to_string(&tree).unwrap();
+        assert_eq!(json, "[1,2,3,4,5]");
+    }
+
+    #[test]
+    fn json_round_trip_preserves_contents() {
+        let tree: AVLTree<i32> = (1..=15).collect();
+        let restored = json_round_trip(&tree);
+
+        assert_eq!(tree.len(), restored.len());
+        assert_eq!(
+            tree.iter().copied().collect::<Vec<_>>(),
+            restored.iter().copied().collect::<Vec<_>>()
+        );
+        assert_invariants(&restored);
+    }
+
+    #[test]
+    fn json_round_trip_empty_tree() {
+        let tree: AVLTree<i32> = AVLTree::new();
+        let restored = json_round_trip(&tree);
+        assert!(restored.is_empty());
+    }
+
+    #[test]
+    fn deserialize_rejects_unordered_input() {
+        let json = "[5, 3, 1, 4, 2]";
+        let result: Result<AVLTree<i32>, _> = serde_json::from_str(json);
+        assert!(
+            result.is_err(),
+            "unordered input must be rejected during deserialization"
+        );
+    }
+
+    #[test]
+    fn deserialize_rejects_duplicate_input() {
+        let json = "[1, 2, 2, 3]";
+        let result: Result<AVLTree<i32>, _> = serde_json::from_str(json);
+        assert!(
+            result.is_err(),
+            "duplicate values must be rejected during deserialization"
+        );
+    }
+
+    #[test]
+    fn deserialize_accepts_valid_ascending_input() {
+        let json = "[1, 2, 3, 4, 5]";
+        let tree: AVLTree<i32> = serde_json::from_str(json).unwrap();
+
+        assert_eq!(tree.iter().copied().collect::<Vec<_>>(), [1, 2, 3, 4, 5]);
+        assert_invariants(&tree);
+    }
+
+    // ── bincode helpers ───────────────────────────────────────────────────────
+
+    fn bincode_round_trip<
+        T: Ord
+            + serde::Serialize
+            + for<'de> serde::Deserialize<'de>
+            + std::fmt::Debug
+            + Clone,
+    >(
+        tree: &AVLTree<T>,
+    ) -> AVLTree<T> {
+        let cfg = bincode::config::standard();
+        let bytes =
+            bincode::serde::encode_to_vec(tree, cfg).expect("bincode encode must succeed");
+        let (restored, _) = bincode::serde::decode_from_slice::<AVLTree<T>, _>(&bytes, cfg)
+            .expect("bincode decode must succeed");
+        restored
+    }
+
+    #[test]
+    fn bincode_round_trip_preserves_contents() {
+        let tree: AVLTree<i32> = (1..=15).collect();
+        let restored = bincode_round_trip(&tree);
+
+        assert_eq!(tree.len(), restored.len());
+        assert_eq!(
+            tree.iter().copied().collect::<Vec<_>>(),
+            restored.iter().copied().collect::<Vec<_>>()
+        );
+        assert_invariants(&restored);
+    }
+
+    #[test]
+    fn bincode_round_trip_empty_tree() {
+        let tree: AVLTree<i32> = AVLTree::new();
+        let restored = bincode_round_trip(&tree);
+        assert!(restored.is_empty());
+    }
+
+    #[test]
+    fn bincode_round_trip_strings() {
+        let tree: AVLTree<String> =
+            ["alpha", "beta", "delta", "gamma"].iter().map(|s| s.to_string()).collect();
+        let restored = bincode_round_trip(&tree);
+
+        assert_eq!(tree.len(), restored.len());
+        assert_eq!(
+            tree.iter().collect::<Vec<_>>(),
+            restored.iter().collect::<Vec<_>>()
+        );
+        assert_invariants(&restored);
+    }
+}
+
+#[test]
 fn mixed_updates_match_the_standard_ordered_set() {
     let mut tree = AVLTree::new();
     let mut expected = BTreeSet::new();

@@ -49,6 +49,15 @@ class AVLTree:
         """
         Return an ascending representation of the stored values.
         """
+    def __reduce__(self, /) -> tuple:
+        """
+        Return ``(callable, args)`` for pickle reconstruction.
+
+        The tree is reduced to a sorted list of ``(value, key)`` pairs and the
+        key extractor.  Reconstruction uses the O(n) sorted builder so
+        unpickling does not perform AVL insertion or Python comparisons.  A
+        callable key must itself be picklable.
+        """
     def clear(self, /) -> None:
         """
         Remove every value from the tree.

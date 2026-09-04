@@ -139,3 +139,83 @@ def test_comparison_and_key_errors_leave_existing_tree_unchanged() -> None:
         rs_avl.AVLTree(key=42)
     with pytest.raises(AttributeError):
         rs_avl.AVLTree([Task("missing", 1)], key="unknown")
+
+
+def test_pickle_round_trip_identity_key() -> None:
+    import pickle
+
+    tree = rs_avl.AVLTree([3, 1, 4, 1, 5, 9, 2, 6])
+    restored = pickle.loads(pickle.dumps(tree))
+
+    assert list(restored) == list(tree)
+    assert len(restored) == len(tree)
+
+
+def test_pickle_round_trip_attribute_key() -> None:
+    import pickle
+
+    low = Task("documentation", 3)
+    urgent = Task("release", 1)
+    normal = Task("testing", 2)
+    tree = rs_avl.AVLTree([low, urgent, normal], key="priority")
+    restored = pickle.loads(pickle.dumps(tree))
+
+    assert [t.name for t in restored] == [t.name for t in tree]
+    assert restored.first().name == "release"
+
+
+def priority_key(task: Task) -> int:
+    return task.priority
+
+
+def test_pickle_round_trip_callable_key() -> None:
+    import pickle
+
+    low = Task("documentation", 3)
+    urgent = Task("release", 1)
+    normal = Task("testing", 2)
+    # Use a module-level function so it is picklable
+    tree = rs_avl.AVLTree([low, urgent, normal], key=priority_key)
+    restored = pickle.loads(pickle.dumps(tree))
+
+    assert [t.name for t in restored] == [t.name for t in tree]
+
+
+def test_pickle_round_trip_empty_tree() -> None:
+    import pickle
+
+    tree: rs_avl.AVLTree = rs_avl.AVLTree()
+    restored = pickle.loads(pickle.dumps(tree))
+
+    assert list(restored) == []
+    assert len(restored) == 0
+    assert restored.is_empty()
+
+
+def test_pickle_fast_path_bypasses_avl_insertion() -> None:
+    """Unpickling must not call insert() or perform AVL comparisons.
+
+    We verify this by patching AVLTree.insert: if the fast path is taken,
+    insert is never invoked during reconstruction.
+    """
+    import pickle
+
+    tree = rs_avl.AVLTree([1, 2, 3, 4, 5])
+
+    insert_call_count = 0
+    original_insert = rs_avl.AVLTree.insert
+
+    def counting_insert(self: rs_avl.AVLTree, value: object) -> bool:
+        nonlocal insert_call_count
+        insert_call_count += 1
+        return original_insert(self, value)
+
+    rs_avl.AVLTree.insert = counting_insert  # type: ignore[method-assign]
+    try:
+        restored = pickle.loads(pickle.dumps(tree))
+    finally:
+        rs_avl.AVLTree.insert = original_insert  # type: ignore[method-assign]
+
+    # Reconstruction must use the fast builder, not insert().
+    assert insert_call_count == 0
+    assert list(restored) == [1, 2, 3, 4, 5]
